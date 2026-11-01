@@ -3,8 +3,31 @@ import { hashPassword } from './auth.js'
 import { COURSES, LABS, ASSESSMENTS } from './content.js'
 import { createProject } from './projectStore.js'
 
+/**
+ * A API pode (re)arrancar enquanto o serviço `migrate` ainda está a criar as
+ * tabelas, por isso espera pelo schema antes de semear.
+ */
+async function waitForSchema(timeoutMs = 90000) {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    try {
+      const { rows } = await pool.query(
+        "SELECT to_regclass('public.courses') AS courses, to_regclass('public.progress_records') AS progress"
+      )
+      if (rows[0].courses && rows[0].progress) return true
+    } catch {
+      // base de dados ainda a arrancar
+    }
+    if (Date.now() >= deadline) return false
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+  }
+}
+
 /** Semeia/atualiza conteúdo educativo e contas de demonstração. Idempotente. */
 export async function seedDatabase() {
+  if (!(await waitForSchema())) {
+    throw new Error('schema ainda não está criado (serviço migrate)')
+  }
   for (const course of COURSES) {
     const { rows } = await pool.query(
       `INSERT INTO courses (slug, title, level, description, icon)

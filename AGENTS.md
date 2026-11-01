@@ -73,6 +73,12 @@ A página de autenticação tem botões "Entrar com a conta de … de demonstra�
   pings) e converte os critérios para a escala 0–20.
 - **`BASE44_PREVIEW_MODE`**: `web/vite.config.js` só aceita o host público do sandbox quando a
   flag vale exatamente `1`; fora do sandbox mantém a allowlist por omissão.
+- **O seed espera pelo schema**: a API pode reiniciar (`node --watch`, `restart: on-failure`) antes
+  de o serviço `migrate` terminar, por isso `seedDatabase()` verifica `to_regclass` das tabelas
+  `courses`/`progress_records` (até 90 s) antes de escrever. Sem erro `relation "courses" does not exist`.
+- **A gravação da topologia bloqueia o projeto** (`SELECT … FOR UPDATE` sobre `projects`) para
+  serializar pedidos simultâneos; sem isso, duas gravações inseriam equipamentos com o mesmo nome
+  e a segunda falhava com `23505`.
 - **Sem serviços externos nem credenciais**: não há secrets.
 
 ## Verify

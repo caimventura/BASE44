@@ -633,6 +633,9 @@ projectsRouter.put('/projects/:id/topology', requireAuth, async (req, res, next)
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
+    // Serializa gravações simultâneas do mesmo projeto: sem este bloqueio, dois
+    // pedidos leem o mesmo estado e inserem equipamentos com nomes iguais.
+    await client.query('SELECT id FROM projects WHERE id = $1 FOR UPDATE', [project.id])
     const { rows: existing } = await client.query(
       'SELECT id FROM project_devices WHERE project_id = $1',
       [project.id]
