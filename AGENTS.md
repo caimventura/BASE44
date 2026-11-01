@@ -1,4 +1,7 @@
-# AGENTS.md
+# NETLAB ACADEMY
+
+Simulador educativo de redes de computadores, em português, com editor de topologias,
+motor de simulação, terminal/CLI, cursos, laboratórios avaliados e assistente NETBOT.
 
 ## Run
 
@@ -6,59 +9,93 @@
 docker compose -f docker-compose.base44.yml up -d
 ```
 
-Preview: <http://localhost:3000>. `ps` should show `db`, `api` and `web` healthy; `migrate` exits 0
-by design.
+Preview: <http://localhost:3000>. `ps` deve mostrar `db`, `api` e `web` saudáveis; `migrate`
+sai com código 0 por desenho.
 
-## App
+### Contas de demonstração (semeadas no primeiro arranque)
 
-NetSim — a mobile-first network simulator (Packet-Tracer-like). Single page, no router.
+| Perfil | E-mail | Palavra-passe |
+| --- | --- | --- |
+| Estudante | `aluno@netlab.pt` | `netlab123` |
+| Professor | `professor@netlab.pt` | `netlab123` |
 
-- `web/src/App.jsx` owns UI state (mode: `select` | `place` | `connect` | `simulate`, plus the
-  device picker sheet and the packet animation loop).
-- `web/src/components/` — `NetworkCanvas` (nodes, SVG cables, pointer drag, packet), `DevicePicker`
-  (device catalogue), `DevicePanel` (config sheet), `SimulationPanel` (log), `Toolbar`.
-- `web/src/lib/deviceTypes.js` + `api/src/deviceTypes.js` — the same type table duplicated (no shared
-  package between the two containers). Adding a type means editing both, plus the CHECK constraint
-  in `api/db/schema.sql`.
-- `api/src/lab.js` — CRUD for devices/links (including `x`/`y` moves) + `POST /api/simulate/ping`.
-- `api/src/simulate.js` — pure simulation: BFS path, subnet math, routing rules; returns `path`
-  (device ids, switches included) so the UI can animate the packet.
+A página de autenticação tem botões "Entrar com a conta de … de demonstração".
+
+## Arquitetura
+
+- **`api/`** — Express + PostgreSQL. Todo o estado vive na base de dados; nenhum resultado de
+  simulação é inventado no cliente.
+  - `src/auth.js` — sessões em BD, cookies HttpOnly, scrypt para palavras-passe, rotas de
+    recuperação de palavra-passe (o código é devolvido na própria resposta porque não há
+    servidor de e-mail neste ambiente).
+  - `src/projects.js` — projetos, dispositivos, cabos, anotações, gravação integral da topologia
+    (`PUT /api/projects/:id/topology`, usada pelo editor e pelo desfazer/refazer), ping/tracert,
+    DHCP, DNS, navegador simulado, CLI e NETBOT.
+  - `src/learning.js` — cursos, lições, laboratórios, avaliações, progresso, área do professor.
+  - `src/content.js` — conteúdo educativo (5 cursos, 10 laboratórios, 3 avaliações).
+  - `src/catalog.js` — catálogo de 20 equipamentos (duplicado em `web/src/lib/catalog.js`).
+  - `src/engine/` — motor independente da interface: `ip.js` (matemática IPv4), `config.js`
+    (normalização de configuração), `topology.js` (grafo físico/L2, VLANs), `ping.js`
+    (encaminhamento, rotas, ARP), `services.js` (DHCP/DNS), `cli.js` (modos e comandos),
+    `netbot.js` (diagnóstico), `evaluate.js` (critérios dos laboratórios).
+- **`web/`** — React 18 + Vite, single origin (Vite faz proxy de `/api`).
+  - `src/App.jsx` — router próprio (`src/lib/router.jsx`), gate de autenticação e rotas.
+  - `src/pages/` — painel, projetos, cursos, lição, exercícios, avaliações, ajuda, perfil,
+    professor e vista pública de projeto partilhado.
+  - `src/components/sim/` — `SimulatorPage` (estado do editor), `Workspace` (canvas SVG com
+    arrastar, zoom e pan), `DeviceDialog` + `DeviceConfigTabs`, `TerminalTab`, `BrowserTab`,
+    `SimulationPanel`, `NetbotPanel`, `PortPicker`.
+- **`api/db/schema.sql`** — schema idempotente, reaplicado em cada arranque pelo serviço `migrate`.
 
 ## Non-obvious things
 
-- **Devices are positioned in percent (0–100)** so one layout works on phone and desktop. Placement
-  is a tap on the canvas (`x`/`y` computed from the click), not drag — keep it that way on touch.
-- **Switches are transparent to routing**: the simulation filters them out of the path before
-  checking subnets/gateways. A router therefore needs an IP on each segment it bridges (`ip`/`mask`
-  and `ip2`/`mask2` — only two interfaces exist).
-- **Device behaviour follows the *category* (`end` / `switch` / `router`)**, not the type: the fancy
-  types (notebook, server, phone, printer, hub, router_wifi) reuse the same three behaviours.
-- **Dragging is pointer-based** (`pointerdown/move/up` on the node, `touch-action: none`), with a
-  6px threshold separating tap from drag and `movedRef` swallowing the click a drag emits. Drag
-  updates local state and persists through `PATCH /api/devices/:id` on release.
-- **The packet animation is a `requestAnimationFrame` loop in `App.jsx`** (650ms per hop, ease-in-out)
-  driving a percent-positioned `.packet` over `result.path`; positions are percentages so it lines up
-  with nodes at any viewport.
-- **Schema is re-applied on every boot** by the `migrate` service (`psql -f api/db/schema.sql`).
-  It must stay idempotent. The seed lab only inserts when `devices` is **empty**, so it comes back
-  if every device is deleted and the stack restarts.
-- **Install happens at container start**: `npm ci && exec npm run dev` from `node:22-bookworm-slim`
-  with the source bind-mounted. Changing a `package.json` requires regenerating its lockfile:
-  `docker run --rm -v "$PWD/web":/app -w /app node:22-bookworm-slim npm install --package-lock-only`.
-- **Single origin**: only port 3000 is published; Vite proxies `/api` to `http://api:8000`
-  (`API_URL`). No CORS.
-- **Sandbox host allowlist**: `web/vite.config.js` adds `.${BASE44_SANDBOX_HOST_DOMAIN}` to Vite's
-  `allowedHosts` only when `BASE44_PREVIEW_MODE === '1'`.
-- No external services and no credentials.
+- **Topologia em percentagem (0–100)** para o mesmo layout servir telemóvel e computador.
+  Arrastar é feito com eventos de pointer (`touch-action: none`), com limiar de 6px entre toque
+  e arrasto.
+- **O editor grava sempre a topologia inteira** (`PUT /topology`). É isso que torna
+  desfazer/refazer simples: o cliente guarda instantâneos e reenvia-os. Dispositivos com `id`
+  negativo são inseridos; ids que já não existem na BD são reinseridos e os cabos religados pelo
+  mapa de ids devolvido.
+- **Portas são reatribuídas no servidor** quando não vêm no payload (`pickPort`), e os cabos são
+  substituídos em bloco na gravação.
+- **Categorias (`end` / `switch` / `router` / `ap`) determinam o comportamento**, não o tipo
+  concreto. Switches e APs são transparentes ao encaminhamento; routers/firewalls/modem decidem
+  por tabela de rotas.
+- **`findHostInLan`** procura o next-hop apenas no mesmo domínio L2 (não atravessa routers), por
+  isso um gateway em falta produz uma mensagem específica em vez de um falso sucesso.
+- **VLANs** são validadas em cada switch do caminho: portas access com VLANs diferentes falham
+  com o código `vlan`; trunks usam a lista de VLANs permitidas.
+- **CLI**: o modo e a interface ativa fazem parte da configuração guardada (`cliInterface`), para
+  que `interface Gig0/0` seguido de `ip address` funcione em pedidos separados.
+- **O DHCP** atribui o primeiro endereço livre do pool no domínio de difusão e grava a
+  configuração do cliente; o processo DORA é devolvido como eventos.
+- **A avaliação dos laboratórios** corre sobre o estado real (equipamentos, cabos, IPs, VLANs,
+  pings) e converte os critérios para a escala 0–20.
+- **`BASE44_PREVIEW_MODE`**: `web/vite.config.js` só aceita o host público do sandbox quando a
+  flag vale exatamente `1`; fora do sandbox mantém a allowlist por omissão.
+- **Sem serviços externos nem credenciais**: não há secrets.
 
 ## Verify
 
 ```bash
-curl -s http://localhost:3000/api/health                 # {"ok":true,"database":"up"}
-curl -s http://localhost:3000/api/lab                    # 5 seeded devices, 4 links
-curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"from":1,"to":5}' http://localhost:3000/api/simulate/ping   # PC1 -> PC3, routed, ok
+curl -s http://localhost:3000/api/health            # {"ok":true,"database":"up"}
+curl -s -c /tmp/c -H 'Content-Type: application/json' \
+  -d '{"email":"aluno@netlab.pt","password":"netlab123"}' \
+  http://localhost:3000/api/auth/login
+curl -s -b /tmp/c http://localhost:3000/api/dashboard
 ```
 
-In the UI the three gestures are: tap a device (config sheet), **Cabo** then two devices, **Ping**
-then two PCs. Creating a device and deleting it again is the cheapest end-to-end check.
+Testes de motor já executados nesta base (podem ser repetidos com um script Node no contentor
+`api`):
+
+- dois PCs na mesma sub-rede → ping OK; laboratório 1 avalia 20/20;
+- LAN com switch, VLANs (mesma VLAN comunica, VLANs diferentes falham com código `vlan`);
+- DHCP DORA num servidor + cliente (`ipconfig /renew`);
+- dois routers com rotas estáticas → ping entre redes OK, tracert com 4 saltos, laboratório 9 = 20;
+- CLI: `show ip route`, `interface` + `ip address`, `no shutdown`, `ip route`, `write memory`;
+- validações: IP inválido recusado com 400, porta em `shutdown` explicada no ping;
+- desfazer: repor instantâneo com dispositivo eliminado volta a criá-lo e religa os cabos.
+
+Na interface: entrar com a conta de demonstração, abrir **Simulador**, configurar um PC, executar
+um ping no modo Simulação e ver os detalhes do pacote. Criar e apagar um dispositivo é o teste
+mais rápido de ciclo completo.

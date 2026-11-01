@@ -1,50 +1,60 @@
-# NetSim
+# NETLAB ACADEMY — simulador interativo de redes de computadores
 
-Simulador de redes no navegador, feito para o celular: monte a topologia, ligue os cabos,
-configure IP e teste a conectividade com ping — como um Packet Tracer simplificado.
+Plataforma educativa em português para aprender redes construindo, configurando e testando
+topologias no navegador. Inspirada nas funcionalidades educativas de simuladores de redes, mas
+com identidade, interface e motor próprios.
 
-- `web/` — React + Vite, servido em <http://localhost:3000>.
-- `api/` — Express em 8000, alcançado pelo proxy `/api` do Vite (mesma origem).
-- `api/db/schema.sql` — schema idempotente + laboratório de exemplo, aplicado a cada boot.
+## O que está implementado
 
-## Rodar
+**Simulador**
+- 20 equipamentos em 3 categorias: PCs, portátil, servidor, impressora, telefone IP, smartphone,
+  tablet, câmara IP, sensor IoT; routers, switch, switch multicamada, hub, access point, modem,
+  firewall, router wireless; repetidor, bridge e controlador.
+- Arrastar e largar, mover, selecionar, duplicar, renomear, eliminar, zoom, navegação, grelha,
+  organização automática, anotações móveis, exportação PNG e limpeza da área.
+- Desfazer e refazer reais (instantâneos da topologia reenviados ao servidor).
+- Cabos Ethernet direto/cruzado, fibra, serial, consola e wireless, com portas escolhidas pelo
+  utilizador, validação de capacidade e indicadores de estado (verde/vermelho/cinza).
+- Configuração por equipamento: IP/máscara/gateway/DNS, DHCP, interfaces e `shutdown`, VLANs e
+  trunks, tabela MAC, rotas estáticas, NAT, serviços de servidor, SSID/WPA2/WPA3/canal.
+- Terminal de computador (`ipconfig`, `ping`, `tracert`, `nslookup`, `arp -a`) e CLI estilo IOS
+  com quatro modos (`enable`, `configure terminal`, `interface`, `ip address`, `show …`,
+  `write memory`, entre outros).
+- Motor de simulação: caminho físico, sub-redes, ARP, VLANs, gateways, tabelas de rotas,
+  latência/TTL, eventos passo a passo e explicação do motivo de cada falha.
+- Modo tempo real e modo simulação com pacote animado, controlos de reprodução, velocidade,
+  detalhes do pacote (IP, MAC, protocolo, próximo salto, resultado) e lista de eventos.
+- DHCP com processo DORA observável e DNS com registos nome → IP.
+
+**Aprendizagem**
+- 5 cursos (15 lições) com teoria, listas, exemplos, notas e testes rápidos.
+- 10 laboratórios guiados com topologia inicial, instruções, critérios e avaliação automática
+  de 0 a 20 valores calculada sobre o estado real.
+- 3 avaliações corrigidas no servidor.
+- NETBOT: assistente que analisa a topologia e explica endereçamento, VLANs, DHCP, DNS, rotas e
+  falhas de comunicação, com recomendações.
+
+**Plataforma**
+- Registo, login, recuperação de palavra-passe, perfil e histórico; palavras-passe com scrypt.
+- Perfis de estudante e professor, com permissões verificadas no backend.
+- Área do professor: estudantes, submissões e publicação de exercícios com critérios.
+- Projetos com equipamentos, posições, cabos, configurações, VLANs, rotas e anotações guardados;
+  duplicar, eliminar, renomear e partilhar (vista pública de leitura).
+- Interface responsiva (computador, tablet e telemóvel) e todo o texto em português.
+
+## Começar
 
 ```bash
 docker compose -f docker-compose.base44.yml up -d
 ```
 
-## Como usar
+Abrir <http://localhost:3000> e entrar com a conta de demonstração:
 
-1. **Adicionar** → escolha o tipo na lista e toque no mapa para posicionar.
-2. **Arraste** qualquer dispositivo para reposicionar (a posição fica salva no banco).
-3. **Cabo** → toque nos dois dispositivos para ligá-los.
-4. Toque em um dispositivo para configurar nome, IP, máscara e gateway (o roteador tem duas
-   interfaces).
-5. **Simular** → toque na origem e no destino: o pacote percorre o caminho salto a salto e depois
-   aparece o log explicando o resultado (sem cabo, sub-redes diferentes, gateway errado, IP ausente).
+- Estudante: `aluno@netlab.pt` / `netlab123`
+- Professor: `professor@netlab.pt` / `netlab123`
 
-### Tipos de dispositivo
+## Aviso
 
-- **Finais:** computador, notebook, servidor, celular, impressora.
-- **Switches:** switch e hub — ambos só repassam quadros na rede local.
-- **Roteadores:** roteador e roteador Wi-Fi — duas interfaces, cada uma numa sub-rede.
-
-O laboratório de exemplo já vem com dois PCs em um switch (192.168.0.0/24) e um roteador levando a
-uma segunda sub-rede (10.0.0.0/24), então `PC1 → PC3` funciona de imediato.
-
-## Decisões de simulação
-
-- Switch é transparente: só repassa quadros dentro da mesma sub-rede.
-- Roteador tem duas interfaces (`ip`/`mask` e `ip2`/`mask2`); cada uma atende a sub-rede do segmento
-  ligado a ela.
-- Ping entre sub-redes exige gateway do PC = IP do roteador naquele segmento.
-- O caminho é o menor caminho no grafo de cabos (BFS), não há tabela de roteamento real.
-
-## Nada de credenciais externas
-
-Tudo roda no Postgres do próprio compose — nenhum serviço de terceiros.
-
-## Override do sandbox
-
-`web/vite.config.js` aceita o hostname do preview em `allowedHosts` **apenas** quando
-`BASE44_PREVIEW_MODE=1`. Sem a variável, o Vite mantém a lista padrão.
+O NETLAB ACADEMY é um simulador educativo. Não executa sistemas operativos Cisco nem software
+oficial de fabricantes e não reproduz integralmente o comportamento de equipamentos físicos.
+Todos os resultados são calculados a partir da topologia e da configuração criadas pelo aluno.
