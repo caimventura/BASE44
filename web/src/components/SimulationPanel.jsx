@@ -1,12 +1,12 @@
-export default function PingPanel({ result, onClose }) {
+export default function SimulationPanel({ result, onClose }) {
   return (
     <section className="sheet">
       <div className="sheet__head">
         <div>
           <h2 className={result.ok ? 'ping--ok' : 'ping--fail'}>
-            {result.ok ? 'Ping concluído' : 'Ping falhou'}
+            {result.ok ? 'Simulação concluída' : 'Simulação falhou'}
           </h2>
-          <p className="sheet__type">Simulação de conectividade</p>
+          <p className="sheet__type">Fluxo de pacotes</p>
         </div>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Fechar">
           ×

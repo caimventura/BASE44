@@ -1,3 +1,5 @@
+import { categoryOf } from './deviceTypes.js'
+
 const IPV4_PATTERN =
   /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
 
@@ -107,13 +109,13 @@ export function simulatePing(devices, links, fromId, toId) {
   const log = []
   const fail = (text) => {
     log.push({ level: 'erro', text })
-    return { ok: false, log }
+    return { ok: false, log, path: [] }
   }
 
   if (!from || !to) return fail('Dispositivo não encontrado.')
   if (from.id === to.id) return fail('Escolha dois dispositivos diferentes.')
-  if (from.type !== 'pc' || to.type !== 'pc') {
-    return fail('O teste de ping compara dois computadores (PCs).')
+  if (categoryOf(from) !== 'end' || categoryOf(to) !== 'end') {
+    return fail('A simulação precisa de dois dispositivos finais (computador, notebook, servidor, celular ou impressora).')
   }
 
   const path = findPath(devices, links, from.id, to.id)
@@ -132,7 +134,7 @@ export function simulatePing(devices, links, fromId, toId) {
   }
 
   // Switches only repeat frames, so routing decisions happen between the rest.
-  const logical = hops.filter((device) => device.type !== 'switch')
+  const logical = hops.filter((device) => categoryOf(device) !== 'switch')
 
   if (logical.length === 2) {
     if (!sameSubnet(from.ip, from.mask, to.ip, to.mask)) {
@@ -145,7 +147,7 @@ export function simulatePing(devices, links, fromId, toId) {
       text: `Mesma sub-rede ${subnetLabel(from.ip, from.mask)}: o switch entregou os quadros direto.`,
     })
     log.push({ level: 'ok', text: `Resposta de ${to.name} recebida.` })
-    return { ok: true, log }
+    return { ok: true, log, path: hops.map((hop) => hop.id) }
   }
 
   for (let index = 0; index < logical.length - 1; index += 1) {

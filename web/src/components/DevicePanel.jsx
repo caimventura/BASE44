@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-
-const TYPE_LABEL = { pc: 'Computador', switch: 'Switch', router: 'Roteador' }
+import { categoryOf, labelOf } from '../lib/deviceTypes.js'
 
 const toDraft = (device) => ({
   name: device.name ?? '',
@@ -63,7 +62,7 @@ export default function DevicePanel({
       <div className="sheet__head">
         <div>
           <h2>{device.name}</h2>
-          <p className="sheet__type">{TYPE_LABEL[device.type]}</p>
+          <p className="sheet__type">{labelOf(device.type)}</p>
         </div>
         <button type="button" className="icon-button" onClick={onClose} aria-label="Fechar">
           ×
@@ -72,13 +71,13 @@ export default function DevicePanel({
 
       <Field label="Nome" value={draft.name} onChange={update('name')} placeholder="PC1" />
 
-      {device.type === 'switch' && (
+      {categoryOf(device.type) === 'switch' && (
         <p className="sheet__note">
           O switch não precisa de IP: ele só repassa os quadros dentro da rede local.
         </p>
       )}
 
-      {device.type === 'pc' && (
+      {categoryOf(device.type) === 'end' && (
         <>
           <div className="grid">
             <Field label="IP" value={draft.ip} onChange={update('ip')} placeholder="192.168.0.10" />
@@ -98,7 +97,7 @@ export default function DevicePanel({
         </>
       )}
 
-      {device.type === 'router' && (
+      {categoryOf(device.type) === 'router' && (
         <>
           <p className="sheet__note">
             Cada interface precisa de um IP na sub-rede do segmento ligado a ela.

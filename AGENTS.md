@@ -13,11 +13,16 @@ by design.
 
 NetSim — a mobile-first network simulator (Packet-Tracer-like). Single page, no router.
 
-- `web/src/App.jsx` owns UI state (mode: `select` | `place` | `connect` | `ping`).
-- `web/src/components/` — `NetworkCanvas` (nodes + SVG cables, percentage coordinates),
-  `DevicePanel` (config sheet), `PingPanel` (simulation log), `Toolbar`.
-- `api/src/lab.js` — CRUD for devices/links + `POST /api/simulate/ping`.
-- `api/src/simulate.js` — pure simulation: BFS path, subnet math, routing rules.
+- `web/src/App.jsx` owns UI state (mode: `select` | `place` | `connect` | `simulate`, plus the
+  device picker sheet and the packet animation loop).
+- `web/src/components/` — `NetworkCanvas` (nodes, SVG cables, pointer drag, packet), `DevicePicker`
+  (device catalogue), `DevicePanel` (config sheet), `SimulationPanel` (log), `Toolbar`.
+- `web/src/lib/deviceTypes.js` + `api/src/deviceTypes.js` — the same type table duplicated (no shared
+  package between the two containers). Adding a type means editing both, plus the CHECK constraint
+  in `api/db/schema.sql`.
+- `api/src/lab.js` — CRUD for devices/links (including `x`/`y` moves) + `POST /api/simulate/ping`.
+- `api/src/simulate.js` — pure simulation: BFS path, subnet math, routing rules; returns `path`
+  (device ids, switches included) so the UI can animate the packet.
 
 ## Non-obvious things
 
@@ -26,6 +31,14 @@ NetSim — a mobile-first network simulator (Packet-Tracer-like). Single page, n
 - **Switches are transparent to routing**: the simulation filters them out of the path before
   checking subnets/gateways. A router therefore needs an IP on each segment it bridges (`ip`/`mask`
   and `ip2`/`mask2` — only two interfaces exist).
+- **Device behaviour follows the *category* (`end` / `switch` / `router`)**, not the type: the fancy
+  types (notebook, server, phone, printer, hub, router_wifi) reuse the same three behaviours.
+- **Dragging is pointer-based** (`pointerdown/move/up` on the node, `touch-action: none`), with a
+  6px threshold separating tap from drag and `movedRef` swallowing the click a drag emits. Drag
+  updates local state and persists through `PATCH /api/devices/:id` on release.
+- **The packet animation is a `requestAnimationFrame` loop in `App.jsx`** (650ms per hop, ease-in-out)
+  driving a percent-positioned `.packet` over `result.path`; positions are percentages so it lines up
+  with nodes at any viewport.
 - **Schema is re-applied on every boot** by the `migrate` service (`psql -f api/db/schema.sql`).
   It must stay idempotent. The seed lab only inserts when `devices` is **empty**, so it comes back
   if every device is deleted and the stack restarts.

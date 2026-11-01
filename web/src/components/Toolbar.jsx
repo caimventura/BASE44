@@ -1,27 +1,16 @@
-import { CableIcon, PcIcon, PingIcon, RouterIcon, SwitchIcon } from './icons.jsx'
+import { CableIcon, PingIcon, PlusIcon } from './icons.jsx'
 
-const DEVICES = [
-  { type: 'pc', label: 'PC', Icon: PcIcon },
-  { type: 'switch', label: 'Switch', Icon: SwitchIcon },
-  { type: 'router', label: 'Roteador', Icon: RouterIcon },
-]
-
-export default function Toolbar({ mode, placeType, onPlace, onConnect, onPing, onCancel }) {
-  const placing = mode === 'place' ? placeType : null
-
+export default function Toolbar({ mode, onAdd, onConnect, onSimulate, onCancel }) {
   return (
     <nav className="toolbar" aria-label="Ferramentas">
-      {DEVICES.map(({ type, label, Icon }) => (
-        <button
-          key={type}
-          type="button"
-          className={`tool${placing === type ? ' tool--active' : ''}`}
-          onClick={() => onPlace(type)}
-        >
-          <Icon />
-          <span>{label}</span>
-        </button>
-      ))}
+      <button
+        type="button"
+        className={`tool${mode === 'place' ? ' tool--active' : ''}`}
+        onClick={onAdd}
+      >
+        <PlusIcon />
+        <span>Adicionar</span>
+      </button>
       <button
         type="button"
         className={`tool${mode === 'connect' ? ' tool--active' : ''}`}
@@ -32,11 +21,11 @@ export default function Toolbar({ mode, placeType, onPlace, onConnect, onPing, o
       </button>
       <button
         type="button"
-        className={`tool${mode === 'ping' ? ' tool--active' : ''}`}
-        onClick={onPing}
+        className={`tool${mode === 'simulate' ? ' tool--active' : ''}`}
+        onClick={onSimulate}
       >
         <PingIcon />
-        <span>Ping</span>
+        <span>Simular</span>
       </button>
       {mode !== 'select' && (
         <button type="button" className="tool tool--cancel" onClick={onCancel}>

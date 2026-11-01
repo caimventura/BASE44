@@ -15,13 +15,19 @@ docker compose -f docker-compose.base44.yml up -d
 
 ## Como usar
 
-1. Toque em **PC**, **Switch** ou **Roteador** e depois no mapa para posicionar (no celular não
-   precisa arrastar).
-2. **Cabo** → toque nos dois dispositivos para ligá-los.
-3. Toque em um dispositivo para configurar nome, IP, máscara e gateway (o roteador tem duas
+1. **Adicionar** → escolha o tipo na lista e toque no mapa para posicionar.
+2. **Arraste** qualquer dispositivo para reposicionar (a posição fica salva no banco).
+3. **Cabo** → toque nos dois dispositivos para ligá-los.
+4. Toque em um dispositivo para configurar nome, IP, máscara e gateway (o roteador tem duas
    interfaces).
-4. **Ping** → toque no PC de origem e no de destino: o app mostra o caminho e explica o motivo da
-   falha (sem cabo, sub-redes diferentes, gateway errado, IP ausente).
+5. **Simular** → toque na origem e no destino: o pacote percorre o caminho salto a salto e depois
+   aparece o log explicando o resultado (sem cabo, sub-redes diferentes, gateway errado, IP ausente).
+
+### Tipos de dispositivo
+
+- **Finais:** computador, notebook, servidor, celular, impressora.
+- **Switches:** switch e hub — ambos só repassam quadros na rede local.
+- **Roteadores:** roteador e roteador Wi-Fi — duas interfaces, cada uma numa sub-rede.
 
 O laboratório de exemplo já vem com dois PCs em um switch (192.168.0.0/24) e um roteador levando a
 uma segunda sub-rede (10.0.0.0/24), então `PC1 → PC3` funciona de imediato.

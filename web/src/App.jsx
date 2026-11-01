@@ -1,23 +1,30 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from './lib/api.js'
+import { labelOf } from './lib/deviceTypes.js'
 import NetworkCanvas from './components/NetworkCanvas.jsx'
 import Toolbar from './components/Toolbar.jsx'
+import DevicePicker from './components/DevicePicker.jsx'
 import DevicePanel from './components/DevicePanel.jsx'
-import PingPanel from './components/PingPanel.jsx'
+import SimulationPanel from './components/SimulationPanel.jsx'
 
-const PLACE_LABELS = { pc: 'PC', switch: 'switch', router: 'roteador' }
+const SEGMENT_MS = 650
 
 export default function App() {
   const [lab, setLab] = useState({ devices: [], links: [] })
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState('select')
   const [placeType, setPlaceType] = useState(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
   const [connectFrom, setConnectFrom] = useState(null)
-  const [pingFrom, setPingFrom] = useState(null)
-  const [pingBusy, setPingBusy] = useState(false)
-  const [pingResult, setPingResult] = useState(null)
+  const [simFrom, setSimFrom] = useState(null)
+  const [simBusy, setSimBusy] = useState(false)
+  const [simResult, setSimResult] = useState(null)
+  const [packet, setPacket] = useState(null)
+  const [hopLabel, setHopLabel] = useState('')
+  const [activeHopId, setActiveHopId] = useState(null)
   const [error, setError] = useState('')
+  const frameRef = useRef(null)
 
   useEffect(() => {
     api
@@ -25,6 +32,8 @@ export default function App() {
       .then(setLab)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
+
+    return () => cancelAnimationFrame(frameRef.current)
   }, [])
 
   const selected = lab.devices.find((device) => device.id === selectedId) ?? null
@@ -41,23 +50,25 @@ export default function App() {
   }, [lab, selected])
 
   const hint = (() => {
-    if (mode === 'place') return `Toque no mapa para posicionar o ${PLACE_LABELS[placeType]}.`
+    if (simBusy) return 'Simulando o fluxo de pacotes…'
+    if (pickerOpen) return 'Escolha o tipo de dispositivo.'
+    if (mode === 'place') return `Toque no mapa para posicionar: ${labelOf(placeType)}.`
     if (mode === 'connect') {
       return connectFrom
         ? `Agora toque no segundo dispositivo para ligar ao ${connectFrom.name}.`
         : 'Toque no primeiro dispositivo do cabo.'
     }
-    if (mode === 'ping') {
-      return pingFrom ? 'Agora toque no PC de destino.' : 'Toque no PC de origem do ping.'
+    if (mode === 'simulate') {
+      return simFrom ? 'Agora toque no dispositivo de destino.' : 'Toque no dispositivo de origem do fluxo.'
     }
-    return 'Toque em um dispositivo para configurar.'
+    return 'Toque para configurar, ou arraste para mover.'
   })()
 
   function resetModes() {
     setMode('select')
     setPlaceType(null)
     setConnectFrom(null)
-    setPingFrom(null)
+    setSimFrom(null)
   }
 
   async function handleCanvasTap(x, y) {
@@ -98,31 +109,94 @@ export default function App() {
       return
     }
 
-    if (mode === 'ping') {
-      if (!pingFrom) {
-        setPingFrom(device)
+    if (mode === 'simulate') {
+      if (!simFrom) {
+        setSimFrom(device)
         return
       }
-      if (pingFrom.id === device.id) {
-        setPingFrom(null)
+      if (simFrom.id === device.id) {
+        setSimFrom(null)
         return
       }
-      setPingBusy(true)
-      try {
-        const result = await api.ping(pingFrom.id, device.id)
-        setPingResult(result)
-        setError('')
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setPingBusy(false)
-        resetModes()
-      }
+      const origin = simFrom
+      setSimFrom(null)
+      await runSimulation(origin, device)
       return
     }
 
     setSelectedId(device.id)
-    setPingResult(null)
+    setSimResult(null)
+  }
+
+  function animateFlow(hops) {
+    return new Promise((resolve) => {
+      const segments = hops.length - 1
+      if (segments < 1) {
+        resolve()
+        return
+      }
+      const start = performance.now()
+
+      const step = (now) => {
+        const progress = Math.min((now - start) / SEGMENT_MS, segments)
+        const index = Math.min(Math.floor(progress), segments - 1)
+        const raw = progress - index
+        const eased = raw * raw * (3 - 2 * raw)
+        const from = hops[index]
+        const to = hops[index + 1]
+
+        setPacket({ x: from.x + (to.x - from.x) * eased, y: from.y + (to.y - from.y) * eased })
+        setHopLabel(`${from.name} → ${to.name}`)
+        setActiveHopId(to.id)
+
+        if (progress >= segments) {
+          setPacket(null)
+          setHopLabel('')
+          setActiveHopId(null)
+          resolve()
+          return
+        }
+        frameRef.current = requestAnimationFrame(step)
+      }
+
+      frameRef.current = requestAnimationFrame(step)
+    })
+  }
+
+  async function runSimulation(origin, destination) {
+    resetModes()
+    setSimResult(null)
+    setSimBusy(true)
+    try {
+      const result = await api.simulate(origin.id, destination.id)
+      setError('')
+      if (result.ok && Array.isArray(result.path) && result.path.length > 1) {
+        const hops = result.path
+          .map((id) => lab.devices.find((device) => device.id === id))
+          .filter(Boolean)
+        await animateFlow(hops)
+      }
+      setSimResult(result)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSimBusy(false)
+    }
+  }
+
+  async function moveDevice(id, x, y) {
+    setLab((previous) => ({
+      ...previous,
+      devices: previous.devices.map((device) =>
+        device.id === id ? { ...device, x, y } : device
+      ),
+    }))
+    try {
+      await api.updateDevice(id, { x, y })
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   async function saveDevice(fields) {
@@ -144,7 +218,7 @@ export default function App() {
         ),
       }))
       setSelectedId(null)
-      setPingResult(null)
+      setSimResult(null)
       setError('')
     } catch (err) {
       setError(err.message)
@@ -164,6 +238,14 @@ export default function App() {
     }
   }
 
+  function pickType(type) {
+    setPickerOpen(false)
+    setMode('place')
+    setPlaceType(type)
+    setSelectedId(null)
+    setSimResult(null)
+  }
+
   return (
     <div className="app">
       <header className="app__header">
@@ -173,7 +255,7 @@ export default function App() {
         </span>
       </header>
 
-      <p className="app__hint">{pingBusy ? 'Simulando o ping…' : hint}</p>
+      <p className="app__hint">{hint}</p>
 
       {error && (
         <div className="app__error" role="alert">
@@ -194,15 +276,23 @@ export default function App() {
             mode={mode}
             selectedId={selectedId}
             connectFrom={connectFrom}
-            pingFrom={pingFrom}
+            simFrom={simFrom}
+            packet={packet}
+            hopLabel={hopLabel}
+            activeHopId={activeHopId}
             onDeviceTap={handleDeviceTap}
+            onDeviceMove={moveDevice}
             onCanvasTap={handleCanvasTap}
           />
         )}
 
-        {pingResult && <PingPanel result={pingResult} onClose={() => setPingResult(null)} />}
+        {pickerOpen && <DevicePicker onPick={pickType} onClose={() => setPickerOpen(false)} />}
 
-        {!pingResult && selected && (
+        {!pickerOpen && simResult && (
+          <SimulationPanel result={simResult} onClose={() => setSimResult(null)} />
+        )}
+
+        {!pickerOpen && !simResult && selected && (
           <DevicePanel
             device={selected}
             connections={connections}
@@ -216,30 +306,23 @@ export default function App() {
 
       <Toolbar
         mode={mode}
-        placeType={placeType}
-        onPlace={(type) => {
-          if (mode === 'place' && placeType === type) {
-            resetModes()
-            return
-          }
-          setMode('place')
-          setPlaceType(type)
-          setConnectFrom(null)
-          setPingFrom(null)
-          setPingResult(null)
+        onAdd={() => {
+          setPickerOpen((open) => !open)
+          resetModes()
+          setSimResult(null)
         }}
         onConnect={() => {
           setMode(mode === 'connect' ? 'select' : 'connect')
           setPlaceType(null)
           setConnectFrom(null)
-          setPingFrom(null)
+          setSimFrom(null)
         }}
-        onPing={() => {
-          setMode(mode === 'ping' ? 'select' : 'ping')
+        onSimulate={() => {
+          setMode(mode === 'simulate' ? 'select' : 'simulate')
           setPlaceType(null)
           setConnectFrom(null)
-          setPingFrom(null)
-          setPingResult(null)
+          setSimFrom(null)
+          setSimResult(null)
         }}
         onCancel={resetModes}
       />

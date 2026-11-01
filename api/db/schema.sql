@@ -3,7 +3,13 @@ DROP TABLE IF EXISTS items;
 CREATE TABLE IF NOT EXISTS devices (
   id serial PRIMARY KEY,
   name text NOT NULL UNIQUE,
-  type text NOT NULL CHECK (type IN ('pc', 'switch', 'router')),
+  type text NOT NULL CHECK (
+    type IN (
+      'pc', 'notebook', 'server', 'phone', 'printer',
+      'switch', 'hub',
+      'router', 'router_wifi'
+    )
+  ),
   x real NOT NULL,
   y real NOT NULL,
   ip text,
@@ -12,6 +18,16 @@ CREATE TABLE IF NOT EXISTS devices (
   ip2 text,
   mask2 text,
   created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Existing labs were created with the first type list: widen it in place.
+ALTER TABLE devices DROP CONSTRAINT IF EXISTS devices_type_check;
+ALTER TABLE devices ADD CONSTRAINT devices_type_check CHECK (
+  type IN (
+    'pc', 'notebook', 'server', 'phone', 'printer',
+    'switch', 'hub',
+    'router', 'router_wifi'
+  )
 );
 
 CREATE TABLE IF NOT EXISTS links (

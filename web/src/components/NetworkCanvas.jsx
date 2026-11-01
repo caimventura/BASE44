@@ -1,6 +1,8 @@
-import { PcIcon, RouterIcon, SwitchIcon } from './icons.jsx'
+import { useRef, useState } from 'react'
+import { DEVICE_ICONS } from './icons.jsx'
+import { categoryOf } from '../lib/deviceTypes.js'
 
-const ICONS = { pc: PcIcon, switch: SwitchIcon, router: RouterIcon }
+const DRAG_THRESHOLD = 6
 
 export default function NetworkCanvas({
   devices,
@@ -8,21 +10,81 @@ export default function NetworkCanvas({
   mode,
   selectedId,
   connectFrom,
-  pingFrom,
+  simFrom,
+  packet,
+  hopLabel,
+  activeHopId,
   onDeviceTap,
+  onDeviceMove,
   onCanvasTap,
 }) {
-  const positions = new Map(devices.map((device) => [device.id, device]))
+  const canvasRef = useRef(null)
+  const dragRef = useRef(null)
+  const movedRef = useRef(false)
+  const [drag, setDrag] = useState(null)
 
-  function handleClick(event) {
-    const rect = event.currentTarget.getBoundingClientRect()
+  const nodes = devices.map((device) =>
+    drag && drag.id === device.id ? { ...device, x: drag.x, y: drag.y } : device
+  )
+  const positions = new Map(nodes.map((device) => [device.id, device]))
+
+  function pointFromEvent(event) {
+    const rect = canvasRef.current.getBoundingClientRect()
     const x = ((event.clientX - rect.left) / rect.width) * 100
     const y = ((event.clientY - rect.top) / rect.height) * 100
-    onCanvasTap(Math.round(x * 10) / 10, Math.round(y * 10) / 10)
+    return { x: Math.min(Math.max(x, 6), 94), y: Math.min(Math.max(y, 6), 94) }
+  }
+
+  function handleCanvasClick(event) {
+    const point = pointFromEvent(event)
+    onCanvasTap(Math.round(point.x * 10) / 10, Math.round(point.y * 10) / 10)
+  }
+
+  function handlePointerDown(event, device) {
+    event.stopPropagation()
+    movedRef.current = false
+    dragRef.current = {
+      id: device.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      x: device.x,
+      y: device.y,
+      moved: false,
+    }
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // capture is best-effort: dragging still works while inside the map
+    }
+  }
+
+  function handlePointerMove(event) {
+    const state = dragRef.current
+    if (!state) return
+    const dx = event.clientX - state.startX
+    const dy = event.clientY - state.startY
+    if (!state.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+
+    state.moved = true
+    const point = pointFromEvent(event)
+    state.x = point.x
+    state.y = point.y
+    setDrag({ id: state.id, x: point.x, y: point.y })
+  }
+
+  function finishDrag() {
+    const state = dragRef.current
+    dragRef.current = null
+    if (!state) return
+    if (state.moved) {
+      movedRef.current = true
+      setDrag(null)
+      onDeviceMove(state.id, Math.round(state.x * 10) / 10, Math.round(state.y * 10) / 10)
+    }
   }
 
   return (
-    <div className={`canvas canvas--${mode}`} onClick={handleClick}>
+    <div ref={canvasRef} className={`canvas canvas--${mode}`} onClick={handleCanvasClick}>
       <svg className="canvas__cables" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         {links.map((link) => {
           const from = positions.get(link.a_id)
@@ -41,14 +103,14 @@ export default function NetworkCanvas({
         })}
       </svg>
 
-      {devices.map((device) => {
-        const Icon = ICONS[device.type]
-        const active = connectFrom?.id === device.id || pingFrom?.id === device.id
+      {nodes.map((device) => {
+        const Icon = DEVICE_ICONS[device.type] ?? DEVICE_ICONS.pc
         const classes = [
           'node',
-          `node--${device.type}`,
+          `node--${categoryOf(device.type)}`,
           selectedId === device.id ? 'node--selected' : '',
-          active ? 'node--active' : '',
+          connectFrom?.id === device.id || simFrom?.id === device.id ? 'node--active' : '',
+          activeHopId === device.id ? 'node--hop' : '',
         ]
           .filter(Boolean)
           .join(' ')
@@ -59,8 +121,16 @@ export default function NetworkCanvas({
             type="button"
             className={classes}
             style={{ left: `${device.x}%`, top: `${device.y}%` }}
+            onPointerDown={(event) => handlePointerDown(event, device)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={finishDrag}
+            onPointerCancel={finishDrag}
             onClick={(event) => {
               event.stopPropagation()
+              if (movedRef.current) {
+                movedRef.current = false
+                return
+              }
               onDeviceTap(device)
             }}
           >
@@ -73,8 +143,13 @@ export default function NetworkCanvas({
         )
       })}
 
+      {packet && (
+        <span className="packet" style={{ left: `${packet.x}%`, top: `${packet.y}%` }} />
+      )}
+      {hopLabel && <span className="sim-chip">{hopLabel}</span>}
+
       {devices.length === 0 && (
-        <p className="canvas__empty">Toque em PC, Switch ou Roteador para começar.</p>
+        <p className="canvas__empty">Toque em Adicionar para começar.</p>
       )}
     </div>
   )

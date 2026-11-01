@@ -27,6 +27,6 @@ export const api = {
   deleteDevice: (id) => request(`/api/devices/${id}`, { method: 'DELETE' }),
   createLink: (a, b) => request('/api/links', { method: 'POST', body: JSON.stringify({ a, b }) }),
   deleteLink: (id) => request(`/api/links/${id}`, { method: 'DELETE' }),
-  ping: (from, to) =>
+  simulate: (from, to) =>
     request('/api/simulate/ping', { method: 'POST', body: JSON.stringify({ from, to }) }),
 }

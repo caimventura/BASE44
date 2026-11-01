@@ -1,11 +1,10 @@
 import express from 'express'
 import { pool } from './db.js'
 import { isValidIpv4, simulatePing } from './simulate.js'
+import { DEVICE_TYPES, isDeviceType } from './deviceTypes.js'
 
 export const labRouter = express.Router()
 
-const DEVICE_TYPES = new Set(['pc', 'switch', 'router'])
-const NAME_PREFIX = { pc: 'PC', switch: 'SW', router: 'R' }
 const IP_FIELDS = ['ip', 'mask', 'gateway', 'ip2', 'mask2']
 const FIELD_LABELS = {
   ip: 'IP',
@@ -41,14 +40,14 @@ labRouter.get('/lab', async (_req, res, next) => {
 
 labRouter.post('/devices', async (req, res, next) => {
   const body = req.body ?? {}
-  if (!DEVICE_TYPES.has(body.type)) {
+  if (!isDeviceType(body.type)) {
     return res.status(400).json({ error: 'Tipo de dispositivo inválido.' })
   }
 
   try {
     const { rows: existing } = await pool.query('SELECT name FROM devices')
     const taken = new Set(existing.map((row) => row.name))
-    const prefix = NAME_PREFIX[body.type]
+    const prefix = DEVICE_TYPES[body.type].prefix
     let index = 1
     while (taken.has(`${prefix}${index}`)) index += 1
 
@@ -88,6 +87,16 @@ labRouter.patch('/devices/:id', async (req, res, next) => {
     }
     values.push(raw || null)
     updates.push(`${field} = $${values.length}`)
+  }
+
+  for (const axis of ['x', 'y']) {
+    if (!(axis in body)) continue
+    const value = Number(body[axis])
+    if (!Number.isFinite(value)) {
+      return res.status(400).json({ error: 'Posição inválida.' })
+    }
+    values.push(clampPosition(value, 50))
+    updates.push(`${axis} = $${values.length}`)
   }
 
   if (updates.length === 0) {
