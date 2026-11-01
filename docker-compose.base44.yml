@@ -1,0 +1,88 @@
+name: starter-app
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=app
+      - POSTGRES_DB=app
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: on-failure
+
+  # One-shot schema/seed step: runs on every boot, safe to repeat.
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=app
+    volumes:
+      - ./api/db/schema.sql:/sql/schema.sql:ro
+    command:
+      ["psql", "-h", "db", "-U", "app", "-d", "app", "-v", "ON_ERROR_STOP=1", "-f", "/sql/schema.sql"]
+    restart: "no"
+
+  api:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: ["sh", "-ec", "npm ci --no-audit --no-fund && exec npm run dev"]
+    volumes:
+      - ./api:/app
+    environment:
+      - DATABASE_URL=postgres://app:app@db:5432/app
+      - PORT=8000
+      - BASE44_PREVIEW_MODE
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
+    restart: on-failure
+    labels:
+      base44.project: API
+      base44.kind: api
+
+  web:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: ["sh", "-ec", "npm ci --no-audit --no-fund && exec npm run dev"]
+    volumes:
+      - ./web:/app
+    environment:
+      - API_URL=http://api:8000
+      - BASE44_PREVIEW_MODE
+      - BASE44_SANDBOX_HOST_DOMAIN
+      - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 120s
+    restart: on-failure
+    labels:
+      base44.project: Web
+      base44.kind: web
+      base44.port: "3000"
+
+volumes:
+  db-data:
