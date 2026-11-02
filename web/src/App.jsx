@@ -9,6 +9,7 @@ import CourseDetail from './pages/CourseDetail.jsx'
 import Labs from './pages/Labs.jsx'
 import Assessments from './pages/Assessments.jsx'
 import Help from './pages/Help.jsx'
+import OsiGame from './pages/OsiGame.jsx'
 import Profile from './pages/Profile.jsx'
 import Teacher from './pages/Teacher.jsx'
 import SharedProject from './pages/SharedProject.jsx'
@@ -53,6 +54,7 @@ function Shell() {
   else if (course) content = <CourseDetail slug={course[1]} />
   else if (path === '/laboratorios') content = <Labs />
   else if (path === '/avaliacoes') content = <Assessments />
+  else if (path === '/desafio-osi') content = <OsiGame />
   else if (path === '/ajuda') content = <Help />
   else if (path === '/perfil') content = <Profile />
   else if (path === '/professor') {

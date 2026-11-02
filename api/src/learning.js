@@ -1,7 +1,7 @@
 import express from 'express'
 import { pool } from './db.js'
 import { requireAuth, requireTeacher } from './auth.js'
-import { logEvent } from './projectStore.js'
+import { createProject, logEvent } from './projectStore.js'
 
 export const learningRouter = express.Router()
 
@@ -52,6 +52,14 @@ learningRouter.get('/dashboard', requireAuth, async (req, res, next) => {
     const done = lessonsDone.rows[0].count + labsDone.rows[0].count + assessmentsDone.rows[0].count
     const progress = totalActivities > 0 ? Math.round((done / totalActivities) * 100) : 0
     const profileRow = profile.rows[0] ?? { level: 1, xp: 0, minutes_learning: 0 }
+    const stage =
+      lessonsDone.rows[0].count >= 29
+        ? 'Avançado'
+        : lessonsDone.rows[0].count >= 15
+          ? 'Intermédio'
+          : lessonsDone.rows[0].count >= 5
+            ? 'Básico'
+            : 'Iniciante'
 
     res.json({
       stats: {
@@ -64,6 +72,7 @@ learningRouter.get('/dashboard', requireAuth, async (req, res, next) => {
         lessonsDone: lessonsDone.rows[0].count,
         assessmentsDone: assessmentsDone.rows[0].count,
         averageScore: Math.round((assessmentsDone.rows[0].avg ?? 0) * 10) / 10,
+        stage,
       },
       recommended: recommended.rows,
       submissions: submissions.rows,
@@ -97,6 +106,7 @@ learningRouter.get('/courses/:slug', requireAuth, async (req, res, next) => {
     if (!course) return res.status(404).json({ error: 'Curso não encontrado.' })
     const lessons = await pool.query(
       `SELECT l.id, l.slug, l.title, l.minutes, l.position, l.summary, l.content, l.quiz,
+              l.practice, l.level,
               (pr.id IS NOT NULL) AS completed
        FROM lessons l
        LEFT JOIN progress_records pr ON pr.ref_id = l.id AND pr.kind = 'lesson' AND pr.user_id = $1
@@ -138,6 +148,33 @@ learningRouter.post('/lessons/:id/complete', requireAuth, async (req, res, next)
       )
     }
     res.json({ ok: true })
+  } catch (error) {
+    next(error)
+  }
+})
+
+learningRouter.post('/lessons/:id/practice', requireAuth, async (req, res, next) => {
+  const id = Number(req.params.id)
+  try {
+    const { rows } = await pool.query('SELECT title, practice FROM lessons WHERE id = $1', [id])
+    const lesson = rows[0]
+    if (!lesson) return res.status(404).json({ error: 'Lição não encontrada.' })
+    const task = lesson.practice ?? {}
+    if (!task?.starter?.devices?.length) {
+      return res.status(400).json({ error: 'Esta lição ainda não tem atividade prática.' })
+    }
+    const project = await createProject({
+      userId: req.user.id,
+      name: `Prática — ${task.title ?? lesson.title}`,
+      description: task.goal ?? '',
+      starter: task.starter,
+    })
+    await logEvent({
+      userId: req.user.id,
+      kind: 'practice',
+      message: `Prática iniciada: ${task.title ?? lesson.title}.`,
+    })
+    res.status(201).json({ project, steps: task.steps ?? [] })
   } catch (error) {
     next(error)
   }
@@ -229,6 +266,7 @@ learningRouter.post('/assessments/:id/submit', requireAuth, async (req, res, nex
       correct: Number(answers[index]) === question.answer,
       correctAnswer: question.answer,
       chosen: Number(answers[index]),
+      explanation: question.explanation ?? '',
     }))
     const correct = details.filter((detail) => detail.correct).length
     const score = Math.round((correct / assessment.questions.length) * 20 * 10) / 10

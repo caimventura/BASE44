@@ -101,9 +101,14 @@ export default function Assessments() {
                   )
                 })}
                 {detail && (
-                  <p className={`small ${detail.correct ? 'ok-text' : 'bad-text'}`}>
-                    {detail.correct ? 'Resposta correta.' : 'Resposta incorreta.'}
-                  </p>
+                  <div className="quiz__explain">
+                    <p className={`small ${detail.correct ? 'ok-text' : 'bad-text'}`}>
+                      {detail.correct
+                        ? 'Correto! Vamos perceber porquê.'
+                        : `Ainda não. A resposta certa é: “${question.options[detail.correctAnswer]}”.`}
+                    </p>
+                    {detail.explanation && <p className="small">{detail.explanation}</p>}
+                  </div>
                 )}
               </fieldset>
             )

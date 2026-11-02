@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { categoryOf, labelOf } from '../../lib/catalog.js'
-import { freePorts, isValidIpv4, isValidMask, macOf } from '../../lib/topology.js'
+import { describeSubnet, freePorts, isValidIpv4, isValidMask, macOf, maskError, maskFromPrefix, networkOf, parseMaskInput, prefixOf } from '../../lib/topology.js'
 
 const updateIface = (setDraft) => (name, patch) =>
   setDraft((draft) => ({
@@ -27,13 +27,61 @@ function IpField({ label, value, onChange, placeholder, error, disabled }) {
   )
 }
 
+const COMMON_PREFIXES = [8, 16, 24, 25, 26, 27, 28, 29, 30]
+
+function MaskField({ label = 'Máscara de sub-rede', value, onChange, ip, disabled }) {
+  const error = value ? maskError(value) : ''
+  const prefix = value && !error ? prefixOf(value) : null
+  const preview = ip && !error ? describeSubnet(ip, value) : ''
+  return (
+    <div className="field maskfield">
+      <span className="field__label">{label}</span>
+      <div className="maskfield__row">
+        <input
+          className={`field__input${error ? ' field__input--error' : ''}`}
+          value={value ?? ''}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="255.255.255.0"
+          inputMode="decimal"
+          autoComplete="off"
+          spellCheck="false"
+          disabled={disabled}
+          aria-label={label}
+        />
+        <select
+          className="field__input maskfield__select"
+          value={prefix ?? ''}
+          onChange={(event) => {
+            const next = event.target.value
+            onChange(next === '' ? '' : maskFromPrefix(Number(next)))
+          }}
+          disabled={disabled}
+          aria-label="Prefixo CIDR"
+        >
+          <option value="">/—</option>
+          {COMMON_PREFIXES.map((entry) => (
+            <option key={entry} value={entry}>/{entry}</option>
+          ))}
+        </select>
+      </div>
+      {error && <span className="field__error">{error}</span>}
+      {!error && preview && <span className="field__hint">{preview}</span>}
+      {!error && !preview && <span className="field__hint">Pode escrever 255.255.255.0 ou apenas /24.</span>}
+    </div>
+  )
+}
+
 export function DesktopTab({ draft, setDraft, device, onDhcp, busy, dhcpLog }) {
   const iface = draft.interfaces.find((entry) => entry.wireless && entry.ip) ?? draft.interfaces[0] ?? {}
   const set = updateIface(setDraft)
 
-  const ipError = iface.ip && !isValidIpv4(iface.ip) ? 'Endereço IPv4 inválido.' : ''
-  const maskError = iface.ip && !isValidMask(iface.mask) ? 'Máscara inválida (bits contíguos).' : ''
+  const ipError = iface.ip && !isValidIpv4(iface.ip) ? 'Endereço IPv4 inválido: usa quatro números entre 0 e 255.' : ''
   const gatewayError = iface.gateway && !isValidIpv4(iface.gateway) ? 'Gateway inválido.' : ''
+  const gatewayOutside =
+    iface.gateway && iface.ip && isValidIpv4(iface.gateway) && isValidMask(iface.mask) &&
+    networkOf(iface.ip, iface.mask) !== networkOf(iface.gateway, iface.mask)
+      ? 'O gateway deve estar na mesma sub-rede do computador.'
+      : ''
 
   return (
     <div className="tabpane">
@@ -48,28 +96,38 @@ export function DesktopTab({ draft, setDraft, device, onDhcp, busy, dhcpLog }) {
             placeholder="192.168.1.10"
             error={ipError}
           />
-          <IpField
-            label="Máscara de sub-rede"
+          <MaskField
             value={iface.mask}
-            onChange={(value) => set(iface.name, { mask: value })}
-            placeholder="255.255.255.0"
-            error={maskError}
+            onChange={(value) => set(iface.name, { mask: parseMaskInput(value).mask })}
+            ip={iface.ip}
           />
         </div>
         <IpField
           label="Gateway padrão"
           value={iface.gateway}
           onChange={(value) => set(iface.name, { gateway: value })}
-          placeholder="192.168.1.1"
-          error={gatewayError}
+          placeholder="192.168.1.1 (opcional na mesma sub-rede)"
+          error={gatewayError || gatewayOutside}
         />
-        <IpField
-          label="Servidor DNS"
-          value={draft.dns}
-          onChange={(value) => setDraft((previous) => ({ ...previous, dns: value }))}
-          placeholder="8.8.8.8"
-          error={draft.dns && !isValidIpv4(draft.dns) ? 'DNS inválido.' : ''}
-        />
+        <div className="grid grid--2">
+          <IpField
+            label="DNS primário"
+            value={draft.dns}
+            onChange={(value) => setDraft((previous) => ({ ...previous, dns: value }))}
+            placeholder="8.8.8.8"
+            error={draft.dns && !isValidIpv4(draft.dns) ? 'DNS inválido.' : ''}
+          />
+          <IpField
+            label="DNS secundário"
+            value={draft.dns2}
+            onChange={(value) => setDraft((previous) => ({ ...previous, dns2: value }))}
+            placeholder="1.1.1.1 (opcional)"
+            error={draft.dns2 && !isValidIpv4(draft.dns2) ? 'DNS inválido.' : ''}
+          />
+        </div>
+        <p className="small muted">
+          O gateway só é necessário para comunicar com outras redes. Dentro da mesma sub-rede pode ficar vazio.
+        </p>
       </section>
 
       <section className="panel">
@@ -476,15 +534,42 @@ export function ServicesTab({ draft, setDraft }) {
 
       {draft.services.dhcp.enabled && (
         <section className="panel">
-          <h3>Pool DHCP</h3>
+          <h3>Servidor DHCP</h3>
           <div className="grid grid--2">
+            <IpField
+              label="Nome do pool"
+              value={pool.name}
+              onChange={(value) => setPool('name', value)}
+              placeholder="Pool da sala"
+            />
             <IpField label="Rede" value={pool.network} onChange={(value) => setPool('network', value)} placeholder="192.168.1.0" />
-            <IpField label="Máscara" value={pool.mask} onChange={(value) => setPool('mask', value)} placeholder="255.255.255.0" />
+            <MaskField
+              value={pool.mask}
+              onChange={(value) => setPool('mask', parseMaskInput(value).mask)}
+              ip={pool.start}
+            />
             <IpField label="Primeiro endereço" value={pool.start} onChange={(value) => setPool('start', value)} placeholder="192.168.1.100" />
-            <IpField label="Último endereço" value={pool.end} onChange={(value) => setPool('end', value)} placeholder="192.168.1.150" />
+            <IpField
+              label="Número máximo de clientes"
+              value={pool.maxClients}
+              onChange={(value) => {
+                const count = Number(String(value).replace(/\D/g, '')) || 0
+                setPool('maxClients', value)
+                if (count > 0 && isValidIpv4(pool.start)) {
+                  const start = pool.start.split('.').map(Number)
+                  const end = start[3] + count - 1
+                  setPool('end', `${start[0]}.${start[1]}.${start[2]}.${Math.min(254, end)}`)
+                }
+              }}
+              placeholder="50"
+            />
+            <IpField label="Último endereço (calculado)" value={pool.end} onChange={(value) => setPool('end', value)} placeholder="192.168.1.149" />
             <IpField label="Gateway" value={pool.gateway} onChange={(value) => setPool('gateway', value)} placeholder="192.168.1.1" />
-            <IpField label="DNS" value={pool.dns} onChange={(value) => setPool('dns', value)} placeholder="192.168.1.10" />
+            <IpField label="DNS" value={pool.dns} onChange={(value) => setPool('dns', value)} placeholder="8.8.8.8" />
           </div>
+          {isValidIpv4(pool.start) && isValidIpv4(pool.end) && (
+            <p className="small muted">O servidor entrega endereços de {pool.start} a {pool.end} (processo DORA).</p>
+          )}
         </section>
       )}
 

@@ -66,13 +66,14 @@ export const api = {
     post(`/api/projects/${id}/service`, { deviceId, hostname, service }),
   cli: (id, deviceId, command, mode) =>
     post(`/api/projects/${id}/cli`, { deviceId, command, mode }),
-  netbot: (id, question) => post(`/api/projects/${id}/netbot`, { question }),
+  netbot: (id, question, selectedDeviceId) => post(`/api/projects/${id}/netbot`, { question, selectedDeviceId }),
   verifyLab: (id, labId) => post(`/api/projects/${id}/labs/${labId}/verify`),
 
   // aprendizagem
   courses: () => request('/api/courses'),
   course: (slug) => request(`/api/courses/${slug}`),
   completeLesson: (id) => post(`/api/lessons/${id}/complete`),
+  startPractice: (id) => post(`/api/lessons/${id}/practice`),
   labs: () => request('/api/labs'),
   lab: (id) => request(`/api/labs/${id}`),
   assessments: () => request('/api/assessments'),

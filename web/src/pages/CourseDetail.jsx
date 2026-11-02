@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api.js'
-import { Link } from '../lib/router.jsx'
+import { Link, useRouter } from '../lib/router.jsx'
 import { CheckIcon, ChevronIcon, ClipboardIcon, ClockIcon } from '../components/icons.jsx'
 import { Badge, PageHeader, Spinner, Toast } from '../components/ui.jsx'
 
@@ -23,6 +23,16 @@ function Block({ block }) {
       </aside>
     )
   }
+  if (block.type === 'steps') {
+    return (
+      <section className="lessonblock">
+        {block.title && <h4>{block.title}</h4>}
+        <ol className="steps">
+          {(block.items ?? []).map((item, index) => <li key={index}>{item}</li>)}
+        </ol>
+      </section>
+    )
+  }
   if (block.type === 'code') {
     return (
       <section className="lessonblock">
@@ -43,43 +53,90 @@ function Quiz({ lesson, onComplete }) {
   const questions = lesson.quiz ?? []
   const [answers, setAnswers] = useState([])
   const [checked, setChecked] = useState(false)
+  const [showExample, setShowExample] = useState(false)
   if (questions.length === 0) return null
 
   const correct = questions.filter((question, index) => answers[index] === question.answer).length
+  const allCorrect = checked && correct === questions.length
+  const wrong = questions.filter((question, index) => checked && answers[index] !== question.answer)
+
+  function retry() {
+    setAnswers([])
+    setChecked(false)
+    setShowExample(false)
+  }
 
   return (
     <section className="quiz">
       <h4>Teste rápido</h4>
-      {questions.map((question, index) => (
-        <fieldset key={index} className="quiz__question">
-          <legend>{index + 1}. {question.question}</legend>
-          {question.options.map((option, optionIndex) => (
-            <label key={optionIndex} className={`quiz__option${checked && optionIndex === question.answer ? ' is-correct' : ''}${checked && answers[index] === optionIndex && optionIndex !== question.answer ? ' is-wrong' : ''}`}>
-              <input
-                type="radio"
-                name={`q-${lesson.id}-${index}`}
-                checked={answers[index] === optionIndex}
-                onChange={() => setAnswers((previous) => {
-                  const next = [...previous]
-                  next[index] = optionIndex
-                  return next
-                })}
-              />
-              <span>{option}</span>
-            </label>
-          ))}
-        </fieldset>
-      ))}
-      <div className="row">
-        <button type="button" className="btn btn--tiny" onClick={() => setChecked(true)} disabled={answers.filter((value) => value !== undefined).length !== questions.length}>
+      {questions.map((question, index) => {
+        const chosen = answers[index]
+        const isWrong = checked && chosen !== question.answer
+        return (
+          <fieldset key={index} className="quiz__question">
+            <legend>{index + 1}. {question.question}</legend>
+            {question.options.map((option, optionIndex) => (
+              <label key={optionIndex} className={`quiz__option${checked && optionIndex === question.answer ? ' is-correct' : ''}${checked && chosen === optionIndex && optionIndex !== question.answer ? ' is-wrong' : ''}`}>
+                <input
+                  type="radio"
+                  name={`q-${lesson.id}-${index}`}
+                  checked={chosen === optionIndex}
+                  disabled={checked}
+                  onChange={() => setAnswers((previous) => {
+                    const next = [...previous]
+                    next[index] = optionIndex
+                    return next
+                  })}
+                />
+                <span>{option}</span>
+              </label>
+            ))}
+            {isWrong && (
+              <div className="quiz__explain">
+                <p className="bad-text small">A resposta correta é: “{question.options[question.answer]}”.</p>
+                <p className="small">{question.explanation || 'Revê a explicação da lição e tenta outra vez.'}</p>
+              </div>
+            )}
+            {checked && !isWrong && question.explanation && (
+              <p className="small ok-text">{question.explanation}</p>
+            )}
+          </fieldset>
+        )
+      })}
+      <div className="row row--wrap">
+        <button
+          type="button"
+          className="btn btn--tiny"
+          onClick={() => setChecked(true)}
+          disabled={checked || answers.filter((value) => value !== undefined).length !== questions.length}
+        >
           Verificar respostas
         </button>
         {checked && (
-          <Badge tone={correct === questions.length ? 'ok' : 'warn'}>
+          <Badge tone={allCorrect ? 'ok' : 'warn'}>
             {correct} de {questions.length} corretas
           </Badge>
         )}
-        {!lesson.completed && (
+        {checked && wrong.length > 0 && (
+          <>
+            <button type="button" className="btn btn--tiny" onClick={() => setChecked(true)}>
+              Explicar novamente
+            </button>
+            <button type="button" className="btn btn--tiny" onClick={() => setShowExample((value) => !value)}>
+              {showExample ? 'Ocultar exemplo' : 'Mostrar exemplo'}
+            </button>
+            <button type="button" className="btn btn--tiny" onClick={retry}>
+              Tentar novamente
+            </button>
+          </>
+        )}
+        {showExample && wrong.length > 0 && (
+          <p className="small muted quiz__example">
+            Exemplo: repara que a pergunta fala de “{wrong[0].options[wrong[0].answer]}”. Sempre que vires
+            este conceito, aplica o raciocínio da lição antes de responder.
+          </p>
+        )}
+        {allCorrect && !lesson.completed && (
           <button type="button" className="btn btn--primary btn--tiny" onClick={onComplete}>
             Marcar lição como concluída
           </button>
@@ -90,8 +147,37 @@ function Quiz({ lesson, onComplete }) {
   )
 }
 
+function PracticeCard({ lesson, onStart, busy, error }) {
+  const task = lesson.practice
+  if (!task?.title) return null
+  return (
+    <section className="practice">
+      <div className="practice__head">
+        <span className="practice__icon">🔬</span>
+        <div>
+          <p className="eyebrow">Aprender na prática</p>
+          <h4>{task.title}</h4>
+        </div>
+      </div>
+      <p className="muted">{task.goal}</p>
+      {Array.isArray(task.steps) && task.steps.length > 0 && (
+        <ol className="steps">
+          {task.steps.map((step, index) => <li key={index}>{step}</li>)}
+        </ol>
+      )}
+      <button type="button" className="btn btn--primary btn--tiny" onClick={onStart} disabled={busy}>
+        {busy ? 'A abrir…' : 'Praticar no simulador'}
+      </button>
+      {error && <p className="form-error small" role="alert">{error}</p>}
+    </section>
+  )
+}
+
 export default function CourseDetail({ slug }) {
+  const { navigate } = useRouter()
   const [data, setData] = useState(null)
+  const [practiceBusy, setPracticeBusy] = useState(false)
+  const [practiceError, setPracticeError] = useState('')
   const [error, setError] = useState('')
   const [openLesson, setOpenLesson] = useState(null)
   const [toast, setToast] = useState(null)
@@ -106,6 +192,19 @@ export default function CourseDetail({ slug }) {
       })
       .catch((err) => setError(err.message))
   }, [slug])
+
+  async function startPractice(lesson) {
+    setPracticeBusy(true)
+    setPracticeError('')
+    try {
+      const result = await api.startPractice(lesson.id)
+      navigate(`/simulador/${result.project.id}`)
+    } catch (err) {
+      setPracticeError(err.message)
+    } finally {
+      setPracticeBusy(false)
+    }
+  }
 
   async function complete(lesson) {
     try {
@@ -170,6 +269,12 @@ export default function CourseDetail({ slug }) {
                   {(lesson.content ?? []).map((block, blockIndex) => (
                     <Block key={blockIndex} block={block} />
                   ))}
+                  <PracticeCard
+                    lesson={lesson}
+                    busy={practiceBusy}
+                    error={practiceError}
+                    onStart={() => startPractice(lesson)}
+                  />
                   <Quiz lesson={lesson} onComplete={() => complete(lesson)} />
                 </div>
               )}

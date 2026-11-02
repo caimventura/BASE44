@@ -32,7 +32,9 @@ A página de autenticação tem botões "Entrar com a conta de … de demonstra�
     (`PUT /api/projects/:id/topology`, usada pelo editor e pelo desfazer/refazer), ping/tracert,
     DHCP, DNS, navegador simulado, CLI e NETBOT.
   - `src/learning.js` — cursos, lições, laboratórios, avaliações, progresso, área do professor.
-  - `src/content.js` — conteúdo educativo (5 cursos, 10 laboratórios, 3 avaliações).
+  - `src/curriculum.js` — currículo progressivo: 5 módulos (40 lições) do zero, com explicações,
+    exemplos, testes com `explanation` e `practice` (laboratório "aprender na prática").
+  - `src/content.js` — reexporta o currículo e define os 10 laboratórios avaliados.
   - `src/catalog.js` — catálogo de 20 equipamentos (duplicado em `web/src/lib/catalog.js`).
   - `src/engine/` — motor independente da interface: `ip.js` (matemática IPv4), `config.js`
     (normalização de configuração), `topology.js` (grafo físico/L2, VLANs), `ping.js`
@@ -44,7 +46,8 @@ A página de autenticação tem botões "Entrar com a conta de … de demonstra�
     professor e vista pública de projeto partilhado.
   - `src/components/sim/` — `SimulatorPage` (estado do editor), `Workspace` (canvas SVG com
     arrastar, zoom e pan), `DeviceDialog` + `DeviceConfigTabs`, `TerminalTab`, `BrowserTab`,
-    `SimulationPanel`, `NetbotPanel`, `PortPicker`.
+    `SimulationPanel`, `NetbotPanel`, `PortPicker`. O NETBOT aplica configurações só depois do
+    clique em "Aplicar configuração". `OsiGame` é o jogo DESAFIO OSI (4 níveis).
 - **`api/db/schema.sql`** — schema idempotente, reaplicado em cada arranque pelo serviço `migrate`.
 
 ## Non-obvious things
@@ -79,6 +82,17 @@ A página de autenticação tem botões "Entrar com a conta de … de demonstra�
 - **A gravação da topologia bloqueia o projeto** (`SELECT … FOR UPDATE` sobre `projects`) para
   serializar pedidos simultâneos; sem isso, duas gravações inseriam equipamentos com o mesmo nome
   e a segunda falhava com `23505`.
+- **O currículo é semeado por módulo**: `seedDatabase()` apaga cursos/avaliações fora da lista
+  (as lições saem em cascata), por isso renomear um curso antigo remove-o da base.
+- **Máscaras**: aceitam-se `255.255.255.0`, `24`, `/24` e `192.168.1.10/24`; a validação exige bits
+  contíguos e devolve mensagens pedagógicas (`maskError`). O cliente tem a mesma lógica em
+  `web/src/lib/topology.js`.
+- **O NETBOT não inventa configurações**: IP sugerido vem da primeira rede real do segmento
+  (ou 192.168.1.0/24 sem contexto), evitando IPs usados e o gateway; DHCP só é dado como
+  disponível se existir servidor com o serviço ativo.
+- **Área de trabalho**: a "planta" tem `min-width: 1180px` para permitir topologias grandes; o
+  editor faz `fitToView` ao abrir e o modo "Expandir" esconde os painéis e recalcula a grelha.
+  Posições continuam em percentagem (5–95), por isso abrir/fechar painéis não move equipamentos.
 - **Sem serviços externos nem credenciais**: não há secrets.
 
 ## Verify

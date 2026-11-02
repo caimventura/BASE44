@@ -5,6 +5,7 @@ import {
   ClipboardIcon,
   FlaskIcon,
   HelpIcon,
+  LayersIcon,
   LayoutIcon,
   LogoutIcon,
   MenuIcon,
@@ -22,6 +23,7 @@ const NAV = [
   { to: '/cursos', label: 'Cursos', icon: BookIcon, match: (path) => path.startsWith('/cursos') },
   { to: '/laboratorios', label: 'Exercícios', icon: FlaskIcon, match: (path) => path.startsWith('/laboratorios') },
   { to: '/avaliacoes', label: 'Avaliações', icon: ClipboardIcon, match: (path) => path.startsWith('/avaliacoes') },
+  { to: '/desafio-osi', label: 'Desafio OSI', icon: LayersIcon, match: (path) => path.startsWith('/desafio-osi') },
   { to: '/ajuda', label: 'Ajuda', icon: HelpIcon, match: (path) => path.startsWith('/ajuda') },
 ]
 

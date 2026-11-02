@@ -83,6 +83,52 @@ export const formatIp = (device) => {
   return iface.ip
 }
 
+
+export const maskFromPrefix = (prefix) => {
+  const safe = Math.max(0, Math.min(32, Number(prefix) || 0))
+  return '1'.repeat(safe).padEnd(32, '0').match(/.{8}/g).map((bits) => parseInt(bits, 2)).join('.')
+}
+
+export const prefixOf = (mask) => {
+  if (!isValidIpv4(mask)) return 0
+  return String(mask).trim().split('.').map((part) => Number(part).toString(2).padStart(8, '0')).join('').split('').filter((bit) => bit === '1').length
+}
+
+/** Aceita "255.255.255.0", "24", "/24" ou "192.168.1.10/24". */
+export function parseMaskInput(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return { mask: '', prefix: null }
+  const slash = raw.match(/\/(\d{1,2})$/)
+  if (slash) {
+    const prefix = Number(slash[1])
+    return prefix >= 0 && prefix <= 32 ? { mask: maskFromPrefix(prefix), prefix } : { mask: raw, prefix: null }
+  }
+  if (/^\d{1,2}$/.test(raw)) {
+    const prefix = Number(raw)
+    return prefix >= 0 && prefix <= 32 ? { mask: maskFromPrefix(prefix), prefix } : { mask: raw, prefix: null }
+  }
+  return { mask: raw, prefix: isValidMask(raw) ? prefixOf(raw) : null }
+}
+
+/** Mensagem de erro pedagógica para uma máscara. */
+export function maskError(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return 'Indica a máscara: por exemplo 255.255.255.0 (ou /24).'
+  const { mask } = parseMaskInput(raw)
+  if (!isValidIpv4(mask)) return 'Máscara inválida: são quatro números entre 0 e 255 separados por pontos.'
+  if (!isValidMask(mask)) return 'Máscara inválida: os bits de rede devem ser contínuos (ex.: 255.255.255.0).'
+  return ''
+}
+
+/** Pré-visualização didática da rede calculada. */
+export function describeSubnet(ip, mask) {
+  if (!isValidIpv4(ip) || !isValidMask(mask)) return ''
+  const network = networkOf(ip, mask)
+  const prefix = prefixOf(mask)
+  const host = ip.split('.').slice(-1)[0]
+  return `Rede ${network}/${prefix} · host ${host}`
+}
+
 export const deviceCategory = (type) => categoryOf(type)
 
 export const suggestionName = (devices, type) => {

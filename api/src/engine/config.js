@@ -1,4 +1,5 @@
 import { CABLE_TYPES, DEVICE_CATALOG, categoryOf, portsOf } from '../catalog.js'
+import { parseMaskInput } from './ip.js'
 
 export const LAN_CATEGORIES = new Set(['switch', 'ap'])
 
@@ -50,19 +51,32 @@ export function defaultConfig(type) {
   }
 }
 
+/** Aceita "192.168.1.10/24" e máscaras escritas como "/24" ou "24". */
+function normalizeAddressing(iface) {
+  let ip = String(iface.ip ?? '').trim()
+  let mask = String(iface.mask ?? '').trim()
+  if (ip.includes('/')) {
+    const [address, prefix] = ip.split('/')
+    ip = address.trim()
+    if (!mask) mask = `/${prefix.trim()}`
+  }
+  if (mask) mask = parseMaskInput(mask).mask
+  return { ip, mask }
+}
+
 export function normalizeConfig(type, raw) {
   const base = defaultConfig(type)
   const config = raw && typeof raw === 'object' ? raw : {}
 
   const interfaces = base.interfaces.map((port) => {
     const saved = (config.interfaces ?? []).find((entry) => entry?.name === port.name)
-    return saved ? { ...port, ...saved, wireless: port.wireless } : port
+    return saved ? { ...port, ...saved, ...normalizeAddressing(saved), wireless: port.wireless } : port
   })
   // Subinterfaces (router-on-a-stick) vivem apenas na configuração guardada.
   for (const saved of config.interfaces ?? []) {
     if (!saved?.name) continue
     if (!interfaces.some((entry) => entry.name === saved.name)) {
-      interfaces.push({ ...saved, wireless: Boolean(saved.wireless) })
+      interfaces.push({ ...saved, ...normalizeAddressing(saved), wireless: Boolean(saved.wireless) })
     }
   }
 

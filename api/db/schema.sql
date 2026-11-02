@@ -108,6 +108,10 @@ CREATE TABLE IF NOT EXISTS lessons (
   UNIQUE (course_id, slug)
 );
 
+-- "Aprender na prática": laboratório rápido associado a cada lição.
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS practice jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS level integer NOT NULL DEFAULT 1;
+
 CREATE TABLE IF NOT EXISTS labs (
   id serial PRIMARY KEY,
   slug text NOT NULL UNIQUE,

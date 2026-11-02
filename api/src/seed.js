@@ -1,6 +1,6 @@
 import { pool } from './db.js'
 import { hashPassword } from './auth.js'
-import { COURSES, LABS, ASSESSMENTS } from './content.js'
+import { COURSES, LABS, MODULE_ASSESSMENTS } from './content.js'
 import { createProject } from './projectStore.js'
 
 /**
@@ -28,6 +28,11 @@ export async function seedDatabase() {
   if (!(await waitForSchema())) {
     throw new Error('schema ainda não está criado (serviço migrate)')
   }
+  // Cursos que saíram do currículo deixam de aparecer (lições em cascata).
+  await pool.query('DELETE FROM courses WHERE NOT (slug = ANY($1::text[]))', [
+    COURSES.map((course) => course.slug),
+  ])
+
   for (const course of COURSES) {
     const { rows } = await pool.query(
       `INSERT INTO courses (slug, title, level, description, icon)
@@ -41,11 +46,12 @@ export async function seedDatabase() {
     const courseId = rows[0].id
     for (const [index, lesson] of course.lessons.entries()) {
       await pool.query(
-        `INSERT INTO lessons (course_id, slug, title, minutes, position, summary, content, quiz)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO lessons (course_id, slug, title, minutes, position, summary, content, quiz, practice, level)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (course_id, slug) DO UPDATE SET
            title = EXCLUDED.title, minutes = EXCLUDED.minutes, position = EXCLUDED.position,
-           summary = EXCLUDED.summary, content = EXCLUDED.content, quiz = EXCLUDED.quiz`,
+           summary = EXCLUDED.summary, content = EXCLUDED.content, quiz = EXCLUDED.quiz,
+           practice = EXCLUDED.practice, level = EXCLUDED.level`,
         [
           courseId,
           lesson.slug,
@@ -55,6 +61,8 @@ export async function seedDatabase() {
           lesson.summary ?? '',
           JSON.stringify(lesson.content ?? []),
           JSON.stringify(lesson.quiz ?? []),
+          JSON.stringify(lesson.practice ?? {}),
+          course.level ?? 1,
         ]
       )
     }
@@ -82,7 +90,11 @@ export async function seedDatabase() {
     )
   }
 
-  for (const assessment of ASSESSMENTS) {
+  await pool.query('DELETE FROM assessments WHERE NOT (slug = ANY($1::text[]))', [
+    MODULE_ASSESSMENTS.map((assessment) => assessment.slug),
+  ])
+
+  for (const assessment of MODULE_ASSESSMENTS) {
     const { rows: courses } = await pool.query('SELECT id FROM courses WHERE slug = $1', [assessment.course])
     await pool.query(
       `INSERT INTO assessments (course_id, slug, title, questions)

@@ -708,3 +708,140 @@ svg { display: block; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* ============================================================
+   NETLAB 2.0 — área de trabalho expansível, mobile e novos módulos
+   ============================================================ */
+
+/* ---- máscara e endereçamento ---- */
+.maskfield__row { display: flex; gap: 6px; align-items: center; }
+.maskfield__select { width: 82px; flex-shrink: 0; padding-left: 6px; }
+.field__hint { font-size: 0.7rem; color: var(--muted); }
+.field__error { font-size: 0.72rem; color: var(--red-500); }
+.field__input--error { border-color: var(--red-500); background: #fff8f8; }
+
+/* ---- painéis retráteis e área de trabalho ---- */
+.palette--hidden { display: none; }
+.sim__side { position: relative; }
+.sim__side--hidden { display: none; }
+.sim__sideclose { position: absolute; top: 6px; right: 6px; z-index: 4; background: var(--surface-2); }
+.sim__body:has(.palette--hidden) { grid-template-columns: minmax(0, 1fr) 330px; }
+.sim__body:has(.sim__side--hidden) { grid-template-columns: 246px minmax(0, 1fr); }
+.sim__body:has(.palette--hidden):has(.sim__side--hidden) { grid-template-columns: minmax(0, 1fr); }
+
+.stage__world { min-width: 1180px; min-height: 760px; }
+
+.sim--expanded .sim__body { grid-template-columns: minmax(0, 1fr); }
+.sim--expanded .palette,
+.sim--expanded .sim__side { display: none; }
+.sim--expanded .sim__bar { padding: 8px 12px; }
+.sim--expanded .sim__id { display: none; }
+.sim--expanded .simbar { width: 100%; justify-content: center; }
+.sim--expanded .stage { min-height: calc(100dvh - 120px); }
+.sim--expanded .sim { min-height: 100dvh; }
+
+/* ---- NETBOT ---- */
+.netbot__context { margin: 0 16px 6px; }
+.msg__text { white-space: pre-line; margin: 0 0 6px; font-size: 0.84rem; line-height: 1.5; }
+.msg .btn { margin-top: 4px; }
+
+/* ---- aprendizagem: prática e explicações ---- */
+.practice { margin: 16px 0 6px; padding: 14px; border-radius: 12px; border: 1px dashed var(--blue-400); background: var(--blue-50, #eff6ff); }
+.practice__head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.practice__head h4 { margin: 0; }
+.practice__icon { font-size: 1.3rem; }
+.practice .steps { margin: 6px 0 10px; }
+.quiz__explain { margin-top: 8px; padding: 10px 12px; border-radius: 9px; background: var(--surface-2); border-left: 3px solid var(--blue-400); }
+.quiz__explain p { margin: 0 0 4px; }
+.quiz__option input:disabled + span { opacity: 0.95; }
+.quiz__example { width: 100%; }
+
+.progression { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.progression__step { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 0.78rem; color: var(--muted); }
+.progression__step span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); font-size: 0.7rem; font-weight: 700; }
+.progression__step.is-done { border-color: var(--green-500); color: #065f46; }
+.progression__step.is-done span { background: var(--green-500); color: #fff; }
+.progression__step.is-current { border-color: var(--blue-500); color: var(--blue-600); background: var(--blue-50, #eff6ff); }
+.progression__step.is-current span { background: var(--blue-500); color: #fff; }
+.coursecard--locked { opacity: 0.86; border-style: dashed; }
+
+/* ---- DESAFIO OSI ---- */
+.osi__levels { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; }
+.osi__level { flex: 1 1 150px; min-width: 132px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); cursor: pointer; text-align: left; }
+.osi__level span { font-weight: 700; font-size: 0.86rem; }
+.osi__level small { color: var(--muted); font-size: 0.7rem; }
+.osi__level em { font-style: normal; font-size: 0.66rem; color: var(--green-600); }
+.osi__level.is-active { border-color: var(--blue-500); background: var(--blue-50, #eff6ff); box-shadow: 0 6px 16px rgba(29, 111, 242, 0.12); }
+.osi__header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.osi__header h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.osi__timer .chip { display: inline-flex; align-items: center; gap: 6px; }
+.osi__stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.osi__stats .badge { display: inline-flex; align-items: center; gap: 4px; }
+.osi__layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; margin-top: 14px; }
+.osi__tower { display: flex; flex-direction: column; gap: 5px; }
+.osi__cap { font-size: 0.62rem; letter-spacing: 0.16em; color: var(--muted); text-align: center; }
+.osi__slot { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 2px dashed var(--line-strong); background: var(--surface); font-size: 0.8rem; cursor: pointer; }
+.osi__slot.is-filled { border-style: solid; border-color: var(--green-500); background: #f0fdf6; }
+.osi__slot.is-error { animation: osiShake 0.4s ease; border-color: var(--red-500); background: #fff7f7; }
+.osi__slotnumber { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--surface-2); font-weight: 700; font-size: 0.72rem; flex-shrink: 0; }
+.osi__slotlabel { flex: 1; }
+@keyframes osiShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.osi__tray h3 { font-size: 0.85rem; margin-bottom: 8px; }
+.osi__tray ul { display: flex; flex-direction: column; gap: 6px; }
+.osi__block { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); font-size: 0.8rem; cursor: grab; text-align: left; }
+.osi__block:hover { border-color: var(--blue-400); }
+.osi__block.is-selected { border-color: var(--blue-500); background: var(--blue-50, #eff6ff); box-shadow: 0 0 0 3px rgba(29, 111, 242, 0.16); }
+.osi__feedback { margin-top: 14px; padding: 12px 14px; border-radius: 11px; font-size: 0.82rem; white-space: pre-line; }
+.osi__feedback--ok { background: #f0fdf6; border-left: 4px solid var(--green-500); color: #065f46; }
+.osi__feedback--bad { background: #fff7f7; border-left: 4px solid var(--red-500); color: #991b1b; }
+.osi__done { margin-top: 14px; }
+.osi__questions { display: flex; flex-direction: column; gap: 12px; }
+.osi__question { padding: 14px; }
+.osi__problem { margin: 0 0 10px; }
+.osi__options { display: flex; flex-wrap: wrap; gap: 6px; }
+.osi__options .chip.is-correct { background: #dcfce7; border-color: var(--green-500); color: #065f46; }
+.osi__options .chip.is-wrong { background: #fee2e2; border-color: var(--red-500); color: #991b1b; }
+
+/* ---- mobile-first: barra horizontal e painéis deslizantes ---- */
+@media (max-width: 980px) {
+  html, body { overflow-x: hidden; }
+  .sim__bar { overflow: hidden; max-width: 100%; }
+  .sim__id { width: auto; max-width: 100%; }
+  .simbar {
+    flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none; padding-bottom: 4px; max-width: 100%; min-width: 0;
+  }
+  .simbar::-webkit-scrollbar { display: none; }
+  .simbar__group { flex-wrap: nowrap; flex-shrink: 0; }
+  .toolbtn { min-height: 40px; padding: 9px 11px; font-size: 0.8rem; }
+  .toolbtn--icon { min-width: 40px; justify-content: center; }
+  .sim__id { width: 100%; }
+  .sim__id h1 { font-size: 1rem; }
+  .stage { min-height: 62dvh; }
+  .palette {
+    inset: auto 0 0 0; left: 0; right: 0; width: auto;
+    max-height: 64dvh; transform: translateY(105%); border-radius: 18px 18px 0 0;
+    border-right: 0; border-top: 1px solid var(--line); box-shadow: 0 -18px 40px rgba(4, 16, 31, 0.24);
+    padding-bottom: 24px;
+  }
+  .palette--open { transform: none; }
+  .palette__hint { margin-bottom: 8px; }
+  .palette__item { padding: 10px 8px; }
+  .palette__icon { width: 34px; height: 34px; }
+  .sim__side--hidden { display: flex; transform: translateY(102%); }
+  .sim__sideclose { top: 10px; right: 10px; }
+  .sim__body:has(.palette--hidden) { grid-template-columns: minmax(0, 1fr); }
+  .sim__body:has(.sim__side--hidden) { grid-template-columns: minmax(0, 1fr); }
+  .osi__layout { grid-template-columns: 1fr; }
+  .osi__slot { min-height: 48px; }
+  .osi__block { padding: 12px; }
+}
+
+@media (max-width: 620px) {
+  .maskfield__row { flex-wrap: nowrap; }
+  .selectionbar, .selbar { max-width: calc(100% - 16px); }
+  .progression { gap: 6px; }
+  .progression__step { flex: 1 1 45%; }
+  .osi__levels { gap: 6px; }
+  .osi__level { min-width: 118px; }
+}

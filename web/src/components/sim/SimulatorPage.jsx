@@ -24,10 +24,13 @@ import {
   BoltIcon,
   BotIcon,
   CableIcon,
+  CloseIcon,
+  CollapseIcon,
   CheckIcon,
   CopyIcon,
   CursorIcon,
   DownloadIcon,
+  ExpandIcon,
   FolderIcon,
   GridIcon,
   LayoutIcon,
@@ -76,6 +79,9 @@ export default function SimulatorPage({ projectId }) {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
   const [netbotOpen, setNetbotOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [paletteHidden, setPaletteHidden] = useState(false)
+  const [sideHidden, setSideHidden] = useState(false)
   const [openDialog, setOpenDialog] = useState(false)
   const [projects, setProjects] = useState(null)
   const [historyRevision, setHistoryRevision] = useState(0)
@@ -115,6 +121,7 @@ export default function SimulatorPage({ projectId }) {
         setProject(data.project)
         setTopology({ devices: data.devices, links: data.links, annotations: data.annotations })
         setError('')
+        window.setTimeout(() => fitToView(data.devices), 150)
       })
       .catch((err) => active && setError(err.message))
       .finally(() => active && setLoading(false))
@@ -130,6 +137,10 @@ export default function SimulatorPage({ projectId }) {
     }
     api.lab(labId).then((data) => setLab(data.lab)).catch(() => setLab(null))
   }, [labId])
+
+  useEffect(() => {
+    if (panelOpen || netbotOpen) setSideHidden(false)
+  }, [panelOpen, netbotOpen])
 
   const selectedDevice = topology.devices.find((device) => device.id === selectedId) ?? null
   const configDevice = topology.devices.find((device) => device.id === configId) ?? null
@@ -465,6 +476,56 @@ export default function SimulatorPage({ projectId }) {
     return result
   }
 
+  /** Ajusta zoom e deslocamento para mostrar todos os equipamentos. */
+  function fitToView(list = topology.devices) {
+    const stage = document.querySelector('.stage')
+    if (!stage) return
+    const width = stage.clientWidth
+    const height = stage.clientHeight
+    if (!width || !height) return
+    if (!list || list.length === 0) {
+      setZoom(1)
+      setPan({ x: 0, y: 0 })
+      return
+    }
+    const xs = list.map((device) => Number(device.x) || 50)
+    const ys = list.map((device) => Number(device.y) || 50)
+    const minX = Math.max(0, Math.min(...xs) - 10)
+    const maxX = Math.min(100, Math.max(...xs) + 10)
+    const minY = Math.max(0, Math.min(...ys) - 12)
+    const maxY = Math.min(100, Math.max(...ys) + 12)
+    const boxW = ((maxX - minX) / 100) * width
+    const boxH = ((maxY - minY) / 100) * height
+    const nextZoom = Math.min(1.4, Math.max(0.3, Math.min(width / boxW, height / boxH) * 0.92))
+    const centerX = (((minX + maxX) / 2) / 100) * width
+    const centerY = (((minY + maxY) / 2) / 100) * height
+    setZoom(Number(nextZoom.toFixed(2)))
+    setPan({ x: Math.round(width / 2 - centerX * nextZoom), y: Math.round(height / 2 - centerY * nextZoom) })
+  }
+
+  /** Aplica uma configuração sugerida pelo NETBOT (só depois do clique do estudante). */
+  async function applyNetbotActions(actions) {
+    const patches = (actions ?? []).filter((action) => action.kind === 'applyAddress')
+    if (patches.length === 0) return false
+    const next = cloneTopology(topology)
+    for (const patch of patches) {
+      const device = next.devices.find((entry) => entry.id === patch.deviceId)
+      if (!device) continue
+      device.config = {
+        ...device.config,
+        dns: patch.dns || device.config.dns || '',
+        interfaces: (device.config.interfaces ?? []).map((iface) =>
+          iface.name === patch.interface
+            ? { ...iface, ip: patch.ip, mask: patch.mask, gateway: patch.gateway ?? '', dhcp: false }
+            : iface
+        ),
+      }
+    }
+    const saved = await persist(next)
+    if (saved) setToast({ message: 'Configuração do NETBOT aplicada.', tone: 'ok' })
+    return Boolean(saved)
+  }
+
   async function runSimulation() {
     if (!simFrom || !simTo) {
       setToast({ message: 'Escolha a origem e o destino da simulação.', tone: 'warn' })
@@ -648,7 +709,7 @@ export default function SimulatorPage({ projectId }) {
   })()
 
   return (
-    <div className="sim">
+    <div className={`sim${expanded ? ' sim--expanded' : ''}`}>
       <div className="sim__bar">
         <div className="sim__id">
           <p className="eyebrow">NETLAB ACADEMY · simulador</p>
@@ -668,6 +729,16 @@ export default function SimulatorPage({ projectId }) {
             </button>
             <button type="button" className="toolbtn" onClick={saveNow}>
               <SaveIcon width={16} height={16} /><span>Guardar</span>
+            </button>
+            <button
+              type="button"
+              className={`toolbtn${expanded ? ' is-active' : ''}`}
+              onClick={() => setExpanded((value) => !value)}
+              aria-pressed={expanded}
+              title={expanded ? 'Restaurar a interface' : 'Expandir a área de trabalho'}
+            >
+              {expanded ? <CollapseIcon width={16} height={16} /> : <ExpandIcon width={16} height={16} />}
+              <span>{expanded ? 'Restaurar' : 'Expandir'}</span>
             </button>
           </div>
 
@@ -736,6 +807,17 @@ export default function SimulatorPage({ projectId }) {
             </button>
             <button
               type="button"
+              className={`toolbtn${!paletteHidden ? ' is-active' : ''}`}
+              onClick={() => {
+                setPaletteHidden((value) => !value)
+                setPaletteOpen(false)
+              }}
+              aria-pressed={!paletteHidden}
+            >
+              <GridIcon width={16} height={16} /><span>Dispositivos</span>
+            </button>
+            <button
+              type="button"
               className={`toolbtn${tool === 'pan' ? ' is-active' : ''}`}
               onClick={() => {
                 setTool('pan')
@@ -759,6 +841,9 @@ export default function SimulatorPage({ projectId }) {
             </label>
             <button type="button" className="toolbtn" onClick={exportPng}>
               <DownloadIcon width={16} height={16} /><span>PNG</span>
+            </button>
+            <button type="button" className="toolbtn" onClick={() => fitToView()}>
+              <ExpandIcon width={16} height={16} /><span>Ajustar</span>
             </button>
             <button type="button" className="toolbtn" onClick={autoLayout}>
               <LayoutIcon width={16} height={16} /><span>Organizar</span>
@@ -823,10 +908,23 @@ export default function SimulatorPage({ projectId }) {
       )}
 
       <div className="sim__body">
-        <aside className={`palette${paletteOpen ? ' palette--open' : ''}`} aria-label="Biblioteca de equipamentos">
+        <aside
+          className={`palette${paletteOpen ? ' palette--open' : ''}${paletteHidden ? ' palette--hidden' : ''}`}
+          aria-label="Biblioteca de equipamentos"
+        >
           <header className="palette__head">
             <h2>Equipamentos</h2>
-            <button type="button" className="icon-btn palette__close" onClick={() => setPaletteOpen(false)} aria-label="Fechar biblioteca">×</button>
+            <button
+              type="button"
+              className="icon-btn palette__close"
+              onClick={() => {
+                setPaletteOpen(false)
+                setPaletteHidden(true)
+              }}
+              aria-label="Fechar biblioteca"
+            >
+              <CloseIcon width={16} height={16} />
+            </button>
           </header>
           <p className="palette__hint">Escolha um equipamento e clique no mapa para o colocar.</p>
           {DEVICE_GROUPS.map((group) => (
@@ -867,7 +965,14 @@ export default function SimulatorPage({ projectId }) {
         <div className="sim__center">
           <div className="sim__hint">
             <span>{hint}</span>
-            <button type="button" className="btn btn--tiny sim__palettebtn" onClick={() => setPaletteOpen(true)}>
+            <button
+              type="button"
+              className="btn btn--tiny sim__palettebtn"
+              onClick={() => {
+                setPaletteHidden(false)
+                setPaletteOpen(true)
+              }}
+            >
               Equipamentos
             </button>
           </div>
@@ -996,9 +1101,25 @@ export default function SimulatorPage({ projectId }) {
           )}
         </div>
 
-        <aside className={`sim__side${panelOpen || netbotOpen ? ' sim__side--open' : ''}`} aria-label="Painel lateral">
+        <aside
+          className={`sim__side${panelOpen || netbotOpen ? ' sim__side--open' : ''}${sideHidden ? ' sim__side--hidden' : ''}`}
+          aria-label="Painel lateral"
+        >
+          <button
+            type="button"
+            className="icon-btn sim__sideclose"
+            onClick={() => setSideHidden(true)}
+            aria-label="Fechar painel lateral"
+          >
+            <CloseIcon width={16} height={16} />
+          </button>
           {netbotOpen ? (
-            <NetbotPanel projectId={projectId} onClose={() => setNetbotOpen(false)} />
+            <NetbotPanel
+              projectId={projectId}
+              selectedDevice={selectedDevice}
+              onApply={applyNetbotActions}
+              onClose={() => setNetbotOpen(false)}
+            />
           ) : mode === 'simulate' ? (
             <SimulationPanel
               devices={topology.devices}

@@ -108,6 +108,7 @@ export default function Dashboard() {
         <StatCard icon={ClipboardIcon} label="Progresso" value={`${stats.progress}%`} hint="Cursos, exercícios e avaliações" />
         <StatCard icon={ClockIcon} label="Tempo de aprendizagem" value={formatMinutes(stats.minutesLearning)} hint="Estimado pelas atividades" />
         <StatCard icon={StarIcon} label="Nível atual" value={stats.level} hint={`${stats.xp} XP acumulados`} tone="accent" />
+        <StatCard icon={BookIcon} label="Etapa de aprendizagem" value={stats.stage ?? 'Iniciante'} hint={`${stats.lessonsDone} lições concluídas`} />
       </section>
 
       <section className="quickgrid">

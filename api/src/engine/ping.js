@@ -92,9 +92,11 @@ function decide(topology, device, dstIp, dstMask) {
     }
     if (!isValidMask(iface.mask)) {
       return {
-        error: `A máscara ${iface.mask || '(vazia)'} do ${device.name} não é válida.`,
+        error: iface.mask
+          ? `A máscara "${iface.mask}" do ${device.name} não é válida: os bits de rede têm de ser contínuos.`
+          : `${device.name} tem IP mas não tem máscara — sem ela não sabe qual é a sua sub-rede.`,
         code: 'mask',
-        hint: 'Use uma máscara contígua, por exemplo 255.255.255.0.',
+        hint: `${device.name}: define a máscara 255.255.255.0 (ou /24).`,
       }
     }
     if (sameSubnet(iface.ip, iface.mask, dstIp, dstMask)) {
@@ -204,7 +206,13 @@ export function simulatePing(rawDevices, rawLinks, fromId, toId) {
     )
   }
   if (!isValidMask(srcIface.mask)) {
-    return fail(`A máscara configurada em ${from.name} é inválida.`, 'mask')
+    return fail(
+      srcIface.mask
+        ? `A máscara "${srcIface.mask}" do ${from.name} não é válida: os bits de rede têm de ser contínuos (ex.: 255.255.255.0).`
+        : `${from.name} tem IP mas não tem máscara — sem ela não sabe qual é a sua sub-rede.`,
+      'mask',
+      `${from.name}: define a máscara 255.255.255.0 (ou /24) e volta a testar.`
+    )
   }
 
   const dstIface = activeIpInterface(to)
@@ -216,7 +224,13 @@ export function simulatePing(rawDevices, rawLinks, fromId, toId) {
     )
   }
   if (!isValidMask(dstIface.mask)) {
-    return fail(`A máscara configurada em ${to.name} é inválida.`, 'mask')
+    return fail(
+      dstIface.mask
+        ? `A máscara "${dstIface.mask}" do ${to.name} não é válida: os bits de rede têm de ser contínuos.`
+        : `${to.name} tem IP mas não tem máscara, por isso o destino não consegue responder.`,
+      'mask',
+      `${to.name}: define a máscara 255.255.255.0 (ou /24).`
+    )
   }
 
   const dstIp = dstIface.ip

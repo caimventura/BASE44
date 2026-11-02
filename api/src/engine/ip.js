@@ -23,6 +23,33 @@ export function isValidMask(value) {
   return /^1*0*$/.test(bits)
 }
 
+
+/** Aceita "255.255.255.0", "24", "/24" ou "192.168.1.10/24". */
+export function parseMaskInput(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return { mask: '', prefix: null }
+  const slash = raw.match(/\/(\d{1,2})$/)
+  if (slash) {
+    const prefix = Number(slash[1])
+    return prefix >= 0 && prefix <= 32 ? { mask: maskFromPrefix(prefix), prefix } : { mask: raw, prefix: null }
+  }
+  if (/^\d{1,2}$/.test(raw)) {
+    const prefix = Number(raw)
+    return prefix >= 0 && prefix <= 32 ? { mask: maskFromPrefix(prefix), prefix } : { mask: raw, prefix: null }
+  }
+  return { mask: raw, prefix: isValidMask(raw) ? prefixLength(raw) : null }
+}
+
+/** Mensagem pedagógica quando a máscara não serve. */
+export function maskError(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return 'Indica a máscara: por exemplo 255.255.255.0 (ou /24).'
+  const { mask } = parseMaskInput(raw)
+  if (!isValidIpv4(mask)) return 'Máscara inválida: são quatro números entre 0 e 255 separados por pontos.'
+  if (!isValidMask(mask)) return 'Máscara inválida: os bits de rede devem ser contínuos (ex.: 255.255.255.0).'
+  return ''
+}
+
 export function networkOf(ip, mask) {
   if (!isValidIpv4(ip) || !isValidIpv4(mask)) return null
   const address = octets(ip)

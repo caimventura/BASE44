@@ -20,7 +20,7 @@ import {
 } from './projectStore.js'
 import { defaultConfig, normalizeConfig } from './engine/config.js'
 import { evaluateLab, starterConfig } from './engine/evaluate.js'
-import { isValidIpv4, isValidMask } from './engine/ip.js'
+import { isValidIpv4, isValidMask, maskError } from './engine/ip.js'
 import { simulatePing, simulateTraceroute } from './engine/ping.js'
 import { requestDhcp, resolveDns, resolveService } from './engine/services.js'
 import { runCli } from './engine/cli.js'
@@ -47,10 +47,10 @@ function validateConfig(type, config) {
       return `Endereço IP inválido em ${iface.name}: "${iface.ip}".`
     }
     if (iface.ip && iface.mask && !isValidMask(iface.mask)) {
-      return `Máscara inválida em ${iface.name}: "${iface.mask}".`
+      return `${iface.name}: ${maskError(iface.mask)}`
     }
     if (iface.ip && !iface.mask) {
-      return `A interface ${iface.name} tem IP mas não tem máscara.`
+      return `${iface.name}: a máscara é obrigatória para saber qual é a rede. Exemplo: 255.255.255.0 (/24).`
     }
     if (iface.gateway && !isValidIpv4(iface.gateway)) {
       return `Gateway inválido em ${iface.name}: "${iface.gateway}".`
@@ -866,7 +866,14 @@ projectsRouter.post('/projects/:id/netbot', requireAuth, async (req, res, next) 
   if (!project) return
   try {
     const { devices, links } = await topologyOf(project.id)
-    res.json(answerNetbot({ question: String(req.body?.question ?? ''), devices, links }))
+    res.json(
+      answerNetbot({
+        question: String(req.body?.question ?? ''),
+        devices,
+        links,
+        selectedDeviceId: asId(req.body?.selectedDeviceId),
+      })
+    )
   } catch (error) {
     next(error)
   }
