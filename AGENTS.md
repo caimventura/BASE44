@@ -93,8 +93,25 @@ autenticação só tem o botão "Entrar com a conta de estudante de demonstraç�
   (ou 192.168.1.0/24 sem contexto), evitando IPs usados e o gateway; DHCP só é dado como
   disponível se existir servidor com o serviço ativo.
 - **Área de trabalho**: a "planta" tem `min-width: 1180px` para permitir topologias grandes; o
-  editor faz `fitToView` ao abrir e o modo "Expandir" esconde os painéis e recalcula a grelha.
-  Posições continuam em percentagem (5–95), por isso abrir/fechar painéis não move equipamentos.
+  editor faz `fitToView` ao abrir, ao redimensionar e ao recolher/abrir painéis. Recolher a
+  biblioteca ou o painel usa as classes `sim__body--no-palette` / `sim__body--no-side` (a grelha
+  alarga); no telemóvel o painel lateral oculto usa `display:none`, porque um `transform` deixava
+  um vazio com a altura do painel. Posições continuam em percentagem (5–95), por isso
+  abrir/fechar painéis não move equipamentos.
+- **Navegação no mapa**: roda do rato faz zoom centrado no cursor, dois dedos fazem pinch-zoom e
+  arrastar o fundo (ferramenta Selecionar ou Navegar) desloca o cenário. `.stage` tem
+  `touch-action:none`.
+- **Ferramentas no telemóvel**: em `max-width: 760px` a `.sim__bar` é uma doca fixa no fundo e a
+  `.tabbar` do shell esconde-se em `.shell--sim` (classe adicionada em `Layout.jsx` para rotas
+  `/simulador`); `.sim__body` reserva `padding-bottom` para a doca.
+- **Cabos**: `CABLE_TYPES` em `web/src/lib/catalog.js` tem `color` e `dash` no estilo Packet
+  Tracer (direto preto contínuo, cruzado azul tracejado, fibra laranja, serial vermelho, consola
+  azul-claro, wireless verde tracejado). O mapa usa `info.dash`; ao selecionar um cabo aparece a
+  etiqueta do tipo com amostra de cor no mapa e no painel inferior.
+- **Estado ligado/desligado**: o ponto do equipamento só fica verde se existir pelo menos um cabo;
+  sem cabos fica cinzento (`node__status--idle`). No separador Interfaces, a etiqueta mostra
+  `ligada` / `sem cabo` / `admin down` conforme os cabos reais, não o estado administrativo.
+  O modal de configuração abre alinhado ao topo no telemóvel para não ficar fora do ecrã.
 - **Interfaces com nomes Cisco**: `catalog.js` guarda `name` (usado nos cabos e na CLI, ex.
   `Gig0/0`) e `label` (nome completo, ex. `GigabitEthernet0/0`). NÃO renomear `name`: os cabos
   guardados referenciam-no. O switch tem 24 portas Fast Ethernet + 2 Gigabit; portas antigas

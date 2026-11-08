@@ -55,7 +55,7 @@ export default function Layout({ user, onLogout, children }) {
   }, [path])
 
   return (
-    <div className="shell">
+    <div className={`shell${path.startsWith('/simulador') ? ' shell--sim' : ''}`}>
       <header className="topbar">
         <Brand />
         <button

@@ -1,5 +1,5 @@
 import { labelOf } from '../../lib/catalog.js'
-import { CloseIcon, PduIcon } from '../icons.jsx'
+import { CloseIcon, MailIcon, MailOpenIcon } from '../icons.jsx'
 
 const PROTOCOLS = [
   { key: 'icmp', label: 'ICMP (ping)' },
@@ -50,7 +50,9 @@ export default function PduPanel({
       <header className="simp__head">
         <div>
           <p className="eyebrow">Ferramenta de simulação</p>
-          <h2><PduIcon width={18} height={18} /> PDU</h2>
+          <h2>
+            {kind === 'simple' ? <MailIcon width={18} height={18} /> : <MailOpenIcon width={18} height={18} />} PDU
+          </h2>
         </div>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Fechar PDU">
           <CloseIcon width={16} height={16} />
@@ -59,10 +61,10 @@ export default function PduPanel({
 
       <div className="segmented segmented--block" role="group" aria-label="Tipo de PDU">
         <button type="button" className={kind === 'simple' ? 'is-active' : ''} onClick={() => setKind('simple')}>
-          PDU simples
+          <MailIcon width={15} height={15} /> PDU simples
         </button>
         <button type="button" className={kind === 'complex' ? 'is-active' : ''} onClick={() => setKind('complex')}>
-          PDU complexo
+          <MailOpenIcon width={15} height={15} /> PDU complexo
         </button>
       </div>
 

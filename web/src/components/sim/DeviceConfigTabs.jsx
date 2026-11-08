@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { categoryOf, labelOf, portLabel } from '../../lib/catalog.js'
-import { describeSubnet, freePorts, isValidIpv4, isValidMask, macOf, maskError, maskFromPrefix, networkOf, parseMaskInput, prefixOf } from '../../lib/topology.js'
+import { cableInfo, describeSubnet, freePorts, isValidIpv4, isValidMask, macOf, maskError, maskFromPrefix, networkOf, parseMaskInput, prefixOf } from '../../lib/topology.js'
 
 const updateIface = (setDraft) => (name, patch) =>
   setDraft((draft) => ({
@@ -165,7 +165,7 @@ export function InterfacesTab({ draft, setDraft, device, links, devices = [] }) 
     const peer = devices.find((entry) => entry.id === peerId)
     return { peer, peerPort }
   }
-  const activeCount = draft.interfaces.filter((iface) => iface.status !== 'down').length
+  const connectedCount = draft.interfaces.filter((iface) => peerOf(iface.name)).length
   const supportsVlan = ['switch', 'multilayer_switch'].includes(device.type)
   const supportsIp = categoryOf(device.type) !== 'end'
 
@@ -174,7 +174,7 @@ export function InterfacesTab({ draft, setDraft, device, links, devices = [] }) 
       <section className="panel">
         <h3>Interfaces</h3>
         <p className="muted">
-          {activeCount} ativas de {draft.interfaces.length}. Nomenclatura Cisco: FastEthernet, GigabitEthernet e Wireless.
+          {connectedCount} ligada(s) de {draft.interfaces.length} porta(s). Nomenclatura Cisco: FastEthernet, GigabitEthernet e Wireless.
         </p>
         <div className="ifaces">
           {draft.interfaces.map((iface) => {
@@ -188,13 +188,13 @@ export function InterfacesTab({ draft, setDraft, device, links, devices = [] }) 
                     <strong>{portLabel(device.type, iface.name)}</strong>
                     <small className="iface__short">{iface.name}</small>
                   </span>
-                  <span className={`tag ${iface.status === 'down' ? 'tag--off' : 'tag--ok'}`}>
-                    {iface.status === 'down' ? 'admin down' : 'up'}
+                  <span className={`tag ${iface.status === 'down' ? 'tag--bad' : connected ? 'tag--ok' : 'tag--off'}`}>
+                    {iface.status === 'down' ? 'admin down' : connected ? 'ligada' : 'sem cabo'}
                   </span>
                 </header>
                 <p className="iface__link">
                   {peer?.peer
-                    ? `Ligada a ${peer.peer.name} · ${portLabel(peer.peer.type, peer.peerPort)} (${connected.cable})`
+                    ? `Ligada a ${peer.peer.name} · ${portLabel(peer.peer.type, peer.peerPort)} · ${cableInfo(connected.cable).label}`
                     : 'Sem cabo ligado'}
                   <span className="iface__mac">MAC {macOf(device.id, iface.name)}</span>
                 </p>

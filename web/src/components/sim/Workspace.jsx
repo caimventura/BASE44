@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DEVICE_ICONS } from '../icons.jsx'
 import { categoryOf } from '../../lib/catalog.js'
 import { cableInfo, formatIp, interfaceLabel, linkState, needsConfiguration } from '../../lib/topology.js'
@@ -30,9 +30,12 @@ export default function Workspace({
   onAnnotationTap,
   onAnnotationMove,
 }) {
+  const stageRef = useRef(null)
   const worldRef = useRef(null)
   const dragRef = useRef(null)
   const panRef = useRef(null)
+  const pointersRef = useRef(new Map())
+  const pinchRef = useRef(null)
   const movedRef = useRef(false)
   const [drag, setDrag] = useState(null)
   const [noteDrag, setNoteDrag] = useState(null)
@@ -71,10 +74,52 @@ export default function Workspace({
     }
   }
 
+  function stagePoint(event) {
+    const rect = stageRef.current.getBoundingClientRect()
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top }
+  }
+
+  // Zoom com a roda do rato, centrado no cursor.
+  function handleWheel(event) {
+    if (!event.deltaY) return
+    event.preventDefault()
+    const point = stagePoint(event)
+    const factor = Math.exp(-event.deltaY * 0.0018)
+    const next = Math.min(2.4, Math.max(0.35, zoom * factor))
+    const worldX = (point.x - pan.x) / zoom
+    const worldY = (point.y - pan.y) / zoom
+    onZoomPanChange(Number(next.toFixed(3)), {
+      x: Math.round(point.x - worldX * next),
+      y: Math.round(point.y - worldY * next),
+    })
+  }
+
   function handlePointerMove(event) {
+    if (pointersRef.current.has(event.pointerId)) {
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    }
+    if (pinchRef.current && pointersRef.current.size >= 2) {
+      const [a, b] = [...pointersRef.current.values()]
+      const distance = Math.hypot(a.x - b.x, a.y - b.y)
+      if (distance < 1 || pinchRef.current.distance < 1) return
+      const next = Math.min(2.4, Math.max(0.35, pinchRef.current.zoom * (distance / pinchRef.current.distance)))
+      const middle = stagePoint({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 })
+      const worldX = (pinchRef.current.middle.x - pinchRef.current.pan.x) / pinchRef.current.zoom
+      const worldY = (pinchRef.current.middle.y - pinchRef.current.pan.y) / pinchRef.current.zoom
+      onZoomPanChange(Number(next.toFixed(3)), {
+        x: Math.round(middle.x - worldX * next),
+        y: Math.round(middle.y - worldY * next),
+      })
+      return
+    }
     if (panRef.current) {
       const state = panRef.current
-      onZoomPanChange(zoom, { x: state.panX + (event.clientX - state.startX), y: state.panY + (event.clientY - state.startY) })
+      const dx = event.clientX - state.startX
+      const dy = event.clientY - state.startY
+      if (!state.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+      state.moved = true
+      movedRef.current = true
+      onZoomPanChange(zoom, { x: state.panX + dx, y: state.panY + dy })
       return
     }
     const state = dragRef.current
@@ -95,7 +140,9 @@ export default function Workspace({
     }
   }
 
-  function handlePointerUp() {
+  function handlePointerUp(event) {
+    pointersRef.current.delete(event.pointerId)
+    if (pointersRef.current.size < 2) pinchRef.current = null
     if (panRef.current) {
       panRef.current = null
       return
@@ -116,20 +163,47 @@ export default function Workspace({
     }
   }
 
+  // O React regista o wheel como passivo; sem o listener nativo o zoom não
+  // consegue impedir o scroll da página por cima do mapa.
+  useEffect(() => {
+    const element = stageRef.current
+    if (!element) return undefined
+    const listener = (event) => handleWheel(event)
+    element.addEventListener('wheel', listener, { passive: false })
+    return () => element.removeEventListener('wheel', listener)
+  })
+
   function handleStagePointerDown(event) {
-    if (tool !== 'pan') return
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    if (pointersRef.current.size === 2) {
+      const [a, b] = [...pointersRef.current.values()]
+      pinchRef.current = {
+        distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+        zoom,
+        pan,
+        middle: stagePoint({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }),
+      }
+      panRef.current = null
+      return
+    }
+    const onElement = event.target.closest?.('.node, .annotation, .cable-hit')
+    const canPan = tool === 'pan' || (tool === 'select' && !onElement && !['place', 'note', 'connect', 'pdu'].includes(mode))
+    if (!canPan) return
     panRef.current = {
       startX: event.clientX,
       startY: event.clientY,
       panX: pan.x,
       panY: pan.y,
+      moved: false,
     }
+    movedRef.current = false
   }
 
   const stageClass = `stage stage--${mode} stage--tool-${tool}`
 
   return (
     <div
+      ref={stageRef}
       className={stageClass}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -179,8 +253,7 @@ export default function Workspace({
                     x2={b.x}
                     y2={b.y}
                     className="cable__line"
-                    style={{ stroke: info.color }}
-                    strokeDasharray={link.cable === 'wireless' ? '2 1.6' : undefined}
+                    style={{ stroke: info.color, strokeDasharray: info.dash ?? undefined }}
                     vectorEffect="non-scaling-stroke"
                   />
                   <circle
@@ -201,6 +274,7 @@ export default function Workspace({
             const a = link && positions.get(link.a_id)
             const b = link && positions.get(link.b_id)
             if (!a || !b) return null
+            const info = cableInfo(link.cable)
             return (
               <>
                 <span className="cable__portlabel" style={{ left: `${a.x}%`, top: `${a.y}%` }}>
@@ -208,6 +282,13 @@ export default function Workspace({
                 </span>
                 <span className="cable__portlabel" style={{ left: `${b.x}%`, top: `${b.y}%` }}>
                   {interfaceLabel(b, link.b_port)}
+                </span>
+                <span
+                  className="cable__typelabel"
+                  style={{ left: `${(a.x + b.x) / 2}%`, top: `${(a.y + b.y) / 2}%` }}
+                >
+                  <i className="cable__swatch" style={{ background: info.color }} aria-hidden="true" />
+                  {info.label}
                 </span>
               </>
             )
@@ -236,7 +317,8 @@ export default function Workspace({
 
           {nodes.map((device) => {
             const Icon = DEVICE_ICONS[device.type] ?? DEVICE_ICONS.pc
-            const state = device.powered === false ? 'off' : 'up'
+            const hasCable = links.some((link) => link.a_id === device.id || link.b_id === device.id)
+            const state = device.powered === false ? 'off' : hasCable ? 'up' : 'idle'
             const classes = [
               'node',
               `node--${categoryOf(device.type)}`,

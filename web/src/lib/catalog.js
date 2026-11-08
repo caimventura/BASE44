@@ -48,13 +48,16 @@ export const DEVICE_GROUPS = [
   { title: 'Dispositivos adicionais', types: ['repeater', 'bridge', 'controller', 'iot'] },
 ]
 
+// Cores e traço inspirados na convenção do Cisco Packet Tracer:
+// direto = preto contínuo, cruzado = azul tracejado, fibra = laranja,
+// serial = vermelho, consola = azul-claro, wireless = verde tracejado.
 export const CABLE_TYPES = {
-  straight: { label: 'Ethernet direto', short: 'Direto', color: '#2563eb' },
-  crossover: { label: 'Ethernet cruzado', short: 'Cruzado', color: '#0ea5e9' },
-  fiber: { label: 'Fibra ótica', short: 'Fibra', color: '#f59e0b' },
-  serial: { label: 'Cabo serial', short: 'Serial', color: '#a855f7' },
-  console: { label: 'Cabo de consola', short: 'Consola', color: '#64748b' },
-  wireless: { label: 'Ligação wireless', short: 'Wireless', color: '#22c55e' },
+  straight: { label: 'Ethernet direto', short: 'Direto', color: '#1f2937', dash: null, media: 'cobre' },
+  crossover: { label: 'Ethernet cruzado', short: 'Cruzado', color: '#2563eb', dash: '7 5', media: 'cobre' },
+  fiber: { label: 'Fibra ótica', short: 'Fibra', color: '#f97316', dash: null, media: 'fibra' },
+  serial: { label: 'Cabo serial', short: 'Serial', color: '#dc2626', dash: null, media: 'serial' },
+  console: { label: 'Cabo de consola', short: 'Consola', color: '#06b6d4', dash: null, media: 'consola' },
+  wireless: { label: 'Ligação wireless', short: 'Wireless', color: '#16a34a', dash: '2 2', media: 'rádio' },
 }
 
 export const categoryOf = (deviceOrType) => {

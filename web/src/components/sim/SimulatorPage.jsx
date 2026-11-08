@@ -37,6 +37,8 @@ import {
   FolderIcon,
   GridIcon,
   LayoutIcon,
+  MailIcon,
+  MailOpenIcon,
   PduIcon,
   PenIcon,
   PlayIcon,
@@ -183,6 +185,14 @@ export default function SimulatorPage({ projectId }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, topology.devices.length])
+
+  // Ao recolher/abrir painéis a área útil muda: volta a enquadrar a topologia
+  // para o mapa ocupar todo o espaço disponível.
+  useEffect(() => {
+    const timer = window.setTimeout(() => fitToView(), 240)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paletteHidden, sideHidden, expanded])
 
   // Animação do pacote PDU ao longo do percurso calculado.
   useEffect(() => {
@@ -1254,7 +1264,7 @@ export default function SimulatorPage({ projectId }) {
               onClick={() => openPdu('simple')}
               title="PDU simples: ICMP Echo entre dois equipamentos"
             >
-              <PduIcon width={16} height={16} /><span>PDU simples</span>
+              <MailIcon width={16} height={16} /><span>PDU simples</span>
             </button>
             <button
               type="button"
@@ -1262,7 +1272,7 @@ export default function SimulatorPage({ projectId }) {
               onClick={() => openPdu('complex')}
               title="PDU complexo: protocolo, TTL, tamanho e sequência"
             >
-              <PduIcon width={16} height={16} /><span>PDU complexo</span>
+              <MailOpenIcon width={16} height={16} /><span>PDU complexo</span>
             </button>
             <button type="button" className={`toolbtn${netbotOpen ? ' is-active' : ''}`} onClick={() => setNetbotOpen((value) => !value)}>
               <BotIcon width={16} height={16} /><span>NETBOT</span>
@@ -1292,7 +1302,9 @@ export default function SimulatorPage({ projectId }) {
         </div>
       )}
 
-      <div className="sim__body">
+      <div
+        className={`sim__body${paletteHidden ? ' sim__body--no-palette' : ''}${sideHidden ? ' sim__body--no-side' : ''}`}
+      >
         <aside
           className={`palette${paletteOpen ? ' palette--open' : ''}${paletteHidden ? ' palette--hidden' : ''}`}
           aria-label="Biblioteca de equipamentos"
@@ -1458,7 +1470,14 @@ export default function SimulatorPage({ projectId }) {
                 return (
                   <>
                     <div className="selbar__meta">
-                      <strong>{cableInfo(selectedLink.cable).label}</strong>
+                      <strong className="selbar__cabletitle">
+                        <i
+                          className="cable__swatch"
+                          style={{ background: cableInfo(selectedLink.cable).color }}
+                          aria-hidden="true"
+                        />
+                        {cableInfo(selectedLink.cable).label}
+                      </strong>
                       <small>
                         {a?.name}:{selectedLink.a_port} ↔ {b?.name}:{selectedLink.b_port}
                       </small>
