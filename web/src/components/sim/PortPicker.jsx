@@ -21,9 +21,9 @@ export default function PortPicker({ device, cable, links, onPick, onClose }) {
           {ports.map((port) => (
             <li key={port.name}>
               <button type="button" className="portlist__item" onClick={() => onPick(port.name)}>
-                <span className="portlist__name">{port.name}</span>
+                <span className="portlist__name">{port.label ?? port.name}</span>
                 <span className="portlist__kind">
-                  {port.wireless ? 'wireless' : 'Ethernet'} · livre
+                  {port.name} · {port.wireless ? 'wireless' : 'Ethernet'} · livre
                 </span>
               </button>
             </li>

@@ -17,9 +17,10 @@ sai com código 0 por desenho.
 | Perfil | E-mail | Palavra-passe |
 | --- | --- | --- |
 | Estudante | `aluno@netlab.pt` | `netlab123` |
-| Professor | `professor@netlab.pt` | `netlab123` |
 
-A página de autenticação tem botões "Entrar com a conta de … de demonstração".
+A conta de professor de demonstração foi retirada (`seed.js` apaga
+`professor@netlab.pt`); o perfil de professor é atribuído pela instituição. A página de
+autenticação só tem o botão "Entrar com a conta de estudante de demonstração".
 
 ## Arquitetura
 
@@ -39,7 +40,8 @@ A página de autenticação tem botões "Entrar com a conta de … de demonstra�
   - `src/engine/` — motor independente da interface: `ip.js` (matemática IPv4), `config.js`
     (normalização de configuração), `topology.js` (grafo físico/L2, VLANs), `ping.js`
     (encaminhamento, rotas, ARP), `services.js` (DHCP/DNS), `cli.js` (modos e comandos),
-    `netbot.js` (diagnóstico), `evaluate.js` (critérios dos laboratórios).
+    `netbot.js` (diagnóstico), `evaluate.js` (critérios dos laboratórios), `pdu.js` (PDU
+    simples/complexo com protocolo, TTL, tamanho, sequência e camadas OSI).
 - **`web/`** — React 18 + Vite, single origin (Vite faz proxy de `/api`).
   - `src/App.jsx` — router próprio (`src/lib/router.jsx`), gate de autenticação e rotas.
   - `src/pages/` — painel, projetos, cursos, lição, exercícios, avaliações, ajuda, perfil,
@@ -93,6 +95,18 @@ A página de autenticação tem botões "Entrar com a conta de … de demonstra�
 - **Área de trabalho**: a "planta" tem `min-width: 1180px` para permitir topologias grandes; o
   editor faz `fitToView` ao abrir e o modo "Expandir" esconde os painéis e recalcula a grelha.
   Posições continuam em percentagem (5–95), por isso abrir/fechar painéis não move equipamentos.
+- **Interfaces com nomes Cisco**: `catalog.js` guarda `name` (usado nos cabos e na CLI, ex.
+  `Gig0/0`) e `label` (nome completo, ex. `GigabitEthernet0/0`). NÃO renomear `name`: os cabos
+  guardados referenciam-no. O switch tem 24 portas Fast Ethernet + 2 Gigabit; portas antigas
+  `Fa0/1..8` continuam válidas.
+- **PDU**: `POST /api/projects/:id/pdu` recebe `{from, to, kind: 'simple'|'complex', protocol,
+  ttl, size, sequence, hostname}`. O simples é um ICMP Echo; o complexo valida o serviço no
+  destino (HTTP/HTTPS/FTP/DNS) e expira o TTL no router correto.
+- **Ligação router↔switch**: a interface do router sem IP aparece a tracejado âmbar (não verde)
+  e o ping explica que falta rota; uma interface em `shutdown` que serve a rede de destino é
+  reportada como `link-down` em vez de "falta de rota".
+- **Exportação**: o PNG é um relatório (cabeçalho, topologia com portas, tabela de endereçamento);
+  o JSON exporta o laboratório inteiro para backup offline — não há custo nem serviços externos.
 - **Sem serviços externos nem credenciais**: não há secrets.
 
 ## Verify

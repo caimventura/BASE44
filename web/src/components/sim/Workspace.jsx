@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { DEVICE_ICONS } from '../icons.jsx'
 import { categoryOf } from '../../lib/catalog.js'
-import { cableInfo, formatIp, linkState } from '../../lib/topology.js'
+import { cableInfo, formatIp, interfaceLabel, linkState, needsConfiguration } from '../../lib/topology.js'
 
 const DRAG_THRESHOLD = 5
 
@@ -16,6 +16,8 @@ export default function Workspace({
   selectedAnnotationId,
   connectFrom,
   activeHopId,
+  pduFrom,
+  pduTo,
   packet,
   zoom,
   pan,
@@ -188,10 +190,28 @@ export default function Workspace({
                     className={`cable__dot cable__dot--${state.tone}`}
                     vectorEffect="non-scaling-stroke"
                   />
+
                 </g>
               )
             })}
           </svg>
+
+          {selectedLinkId && (() => {
+            const link = links.find((entry) => entry.id === selectedLinkId)
+            const a = link && positions.get(link.a_id)
+            const b = link && positions.get(link.b_id)
+            if (!a || !b) return null
+            return (
+              <>
+                <span className="cable__portlabel" style={{ left: `${a.x}%`, top: `${a.y}%` }}>
+                  {interfaceLabel(a, link.a_port)}
+                </span>
+                <span className="cable__portlabel" style={{ left: `${b.x}%`, top: `${b.y}%` }}>
+                  {interfaceLabel(b, link.b_port)}
+                </span>
+              </>
+            )
+          })()}
 
           {notes.map((annotation) => (
             <div
@@ -224,11 +244,14 @@ export default function Workspace({
               selectedId === device.id ? 'node--selected' : '',
               connectFrom?.id === device.id ? 'node--active' : '',
               activeHopId === device.id ? 'node--hop' : '',
+              pduFrom === device.id ? 'node--pdu-source' : '',
+              pduTo === device.id ? 'node--pdu-target' : '',
               drag?.id === device.id ? 'node--dragging' : '',
             ]
               .filter(Boolean)
               .join(' ')
             const ip = formatIp(device)
+            const warn = needsConfiguration(device, links)
 
             return (
               <button
@@ -256,6 +279,11 @@ export default function Workspace({
                 </span>
                 <span className="node__name">{device.name}</span>
                 <span className="node__ip">{ip ?? 'sem IP'}</span>
+                {warn && (
+                  <span className="node__warn" title="Interface ligada sem endereço IP — configure o equipamento">
+                    !
+                  </span>
+                )}
                 <span className={`node__status node__status--${state}`} aria-hidden="true" />
               </button>
             )
@@ -288,6 +316,7 @@ export default function Workspace({
 
       {tool === 'pan' && <span className="stage__tool">Ferramenta de navegação: arraste para deslocar o cenário</span>}
       {tool === 'note' && <span className="stage__tool">Clique no mapa para colocar uma anotação</span>}
+      {tool === 'erase' && <span className="stage__tool">Toque num equipamento, cabo ou anotação para apagar</span>}
       {mode === 'connect' && <span className="stage__tool">Clique num equipamento para escolher a porta de ligação</span>}
     </div>
   )

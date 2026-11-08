@@ -2,36 +2,37 @@
    Tema: azul-escuro, azul tecnológico, branco e detalhes em verde. */
 
 :root {
-  --navy-950: #04101f;
-  --navy-900: #071a30;
-  --navy-800: #0b2545;
-  --navy-700: #123a63;
-  --blue-600: #1257d6;
-  --blue-500: #1d6ff2;
-  --blue-400: #4a90ff;
-  --blue-100: #dce8ff;
-  --blue-50: #eef4ff;
-  --green-600: #0f9d58;
-  --green-500: #16b364;
-  --green-100: #d9f7e6;
-  --amber-500: #f59e0b;
-  --amber-100: #fef0d0;
-  --red-500: #e5484d;
-  --red-100: #fee2e2;
-  --violet: #a855f7;
-  --sky: #0ea5e9;
-  --ink: #0f172a;
-  --ink-soft: #334155;
-  --muted: #64748b;
+  /* Sistema técnico NETLAB: ardósia + azul único + verde de estado. */
+  --navy-950: #0a1620;
+  --navy-900: #0f1e2b;
+  --navy-800: #14293a;
+  --navy-700: #1d3a4f;
+  --blue-600: #0f6bbd;
+  --blue-500: #1279d0;
+  --blue-400: #3d9be0;
+  --blue-100: #d8e9f7;
+  --blue-50: #eef6fc;
+  --green-600: #0b7f52;
+  --green-500: #12915f;
+  --green-100: #e2f4ec;
+  --amber-500: #b7791f;
+  --amber-100: #fdf3e0;
+  --red-500: #c0392b;
+  --red-100: #fdecea;
+  --violet: #6b5bd2;
+  --sky: #0f8fb8;
+  --ink: #101a22;
+  --ink-soft: #33424f;
+  --muted: #657785;
   --surface: #ffffff;
-  --surface-2: #f4f8fd;
-  --surface-3: #eaf1fa;
-  --line: #dbe5f1;
-  --line-strong: #c3d3e6;
-  --radius: 16px;
-  --radius-sm: 10px;
-  --shadow: 0 12px 32px rgba(7, 26, 48, 0.09);
-  --shadow-sm: 0 4px 14px rgba(7, 26, 48, 0.07);
+  --surface-2: #f4f6f8;
+  --surface-3: #e9eef2;
+  --line: #dde5ea;
+  --line-strong: #c4d1da;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 8px rgba(15, 30, 43, 0.08);
+  --shadow-sm: 0 1px 2px rgba(15, 30, 43, 0.06);
   --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'Cascadia Code', Menlo, Consolas, monospace;
 }
@@ -44,9 +45,7 @@ body {
   font-family: var(--font);
   color: var(--ink);
   overflow-x: clip;
-  background:
-    radial-gradient(circle at 15% -10%, rgba(29, 111, 242, 0.08), transparent 45%),
-    var(--surface-2);
+  background: var(--surface-2);
   -webkit-font-smoothing: antialiased;
   font-size: 15px;
   line-height: 1.5;
@@ -844,4 +843,229 @@ svg { display: block; }
   .progression__step { flex: 1 1 45%; }
   .osi__levels { gap: 6px; }
   .osi__level { min-width: 118px; }
+}
+
+/* ============================================================
+   NETLAB 3.0 — linguagem profissional, interfaces Cisco e mobile
+   ============================================================ */
+
+/* ---- shell e navegação ---- */
+.topbar {
+  background: var(--navy-900);
+  box-shadow: none;
+  border-bottom: 1px solid #1d3143;
+  height: 56px;
+  padding: 0 18px;
+  gap: 16px;
+}
+.brand__mark { border-radius: 4px; background: var(--blue-600); box-shadow: none; }
+.brand__text strong { font-size: 0.95rem; letter-spacing: 0.12em; }
+.brand__text span { color: #7fb2d9; letter-spacing: 0.28em; }
+.nav { gap: 0; }
+.nav__link {
+  border-radius: 0;
+  padding: 19px 11px;
+  color: #b9c9d6;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+.nav__link:hover { background: transparent; color: #fff; }
+.nav__link--active { background: transparent; box-shadow: none; color: #fff; border-bottom-color: var(--blue-400); }
+.userchip { border-radius: 4px; background: rgba(255, 255, 255, 0.06); }
+.userchip__avatar { border-radius: 3px; background: var(--blue-600); }
+.userchip__meta small { color: #9fb8d4; }
+.tabbar { display: none; }
+
+/* ---- componentes ---- */
+.btn { border-radius: 6px; transform: none; font-weight: 600; box-shadow: none; }
+.btn--primary { background: var(--blue-600); border-color: var(--blue-600); color: #fff; box-shadow: none; }
+.btn--primary:hover { background: #0b5ca5; background-image: none; }
+.btn--ghost { background: #fff; border-color: var(--line-strong); }
+.btn--danger { background: #fff; border-color: #e7b3ac; color: var(--red-500); }
+.btn--danger:hover { background: var(--red-100); }
+.card, .stat, .quick, .lesson, .projectcard, .coursecard, .labcard, .panel, .netbot, .simp { border-radius: 8px; }
+.card, .stat, .quick { box-shadow: none; }
+.stat { border-top: 3px solid var(--line-strong); }
+.stat--accent { border-top-color: var(--green-500); }
+.stat::after { display: none; }
+.stat__icon { border-radius: 4px; background: var(--surface-2); color: var(--ink-soft); }
+.progress__bar { background: var(--blue-600); }
+.badge, .tag {
+  border-radius: 4px;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.eyebrow { color: var(--muted); }
+.modal__panel { border-radius: 10px; }
+.tabs__tab { border-radius: 0; }
+.field__input { border-radius: 6px; }
+.icon-btn { border-radius: 6px; }
+.footer { background: #fff; }
+
+/* ---- simulador ---- */
+.sim { background: var(--surface-2); }
+.sim__bar { background: #fff; padding: 10px 14px; }
+.sim__id h1 { font-size: 1.05rem; }
+.simbar__group { border-radius: 6px; background: #fff; padding: 3px; }
+.toolbtn { border-radius: 4px; font-size: 0.76rem; }
+.toolbtn.is-active { background: var(--navy-800); box-shadow: none; }
+.toolbtn--erase.is-active { background: var(--red-500); }
+.sim__hint { background: #fff; font-size: 0.74rem; }
+.stage { background: #fbfcfd; }
+.stage__world {
+  background-image:
+    linear-gradient(rgba(16, 26, 34, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 26, 34, 0.045) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.stage--tool-erase .stage__world { cursor: not-allowed; }
+.stage--tool-erase .node { cursor: not-allowed; border-color: #e7b3ac; }
+.node {
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(15, 30, 43, 0.1);
+  border-color: var(--line-strong);
+  background: #fff;
+}
+.node:hover { box-shadow: 0 4px 10px rgba(15, 30, 43, 0.14); }
+.node--selected { box-shadow: 0 0 0 2px var(--blue-500); }
+.node--active { box-shadow: 0 0 0 2px var(--green-500); }
+.node--hop { box-shadow: 0 0 0 2px var(--amber-500); }
+.node--pdu-source { box-shadow: 0 0 0 2px var(--green-600); }
+.node--pdu-target { box-shadow: 0 0 0 2px var(--blue-600); }
+.node__icon { border-radius: 4px; }
+.node__warn {
+  position: absolute; top: 5px; left: 5px; display: grid; place-items: center;
+  width: 14px; height: 14px; border-radius: 50%; background: var(--amber-500);
+  color: #fff; font-size: 10px; font-weight: 800; line-height: 1;
+}
+.node__status { border-radius: 2px; }
+.cable--unconfigured .cable__line { opacity: 1; stroke-dasharray: 5 4; }
+.cable__dot--unconfigured { fill: var(--amber-500); }
+.cable__portlabel {
+  position: absolute; transform: translate(-50%, calc(-100% - 20px));
+  padding: 2px 5px; border-radius: 3px; background: var(--navy-900); color: #fff;
+  font-family: var(--mono); font-size: 0.56rem; white-space: nowrap; pointer-events: none; z-index: 5;
+}
+.packet { border-radius: 4px; box-shadow: none; }
+.selbar { border-radius: 6px; box-shadow: 0 8px 20px rgba(15, 30, 43, 0.16); }
+.palette__icon, .selbar__icon { border-radius: 4px; }
+.palette__item { border-radius: 4px; }
+
+/* ---- interfaces estilo Cisco ---- */
+.iface { border-radius: 6px; }
+.iface__title { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.iface__title strong { font-family: var(--mono); font-size: 0.82rem; }
+.iface__short { font-family: var(--mono); font-size: 0.64rem; color: var(--muted); }
+.iface__mac { display: block; margin-top: 3px; font-family: var(--mono); font-size: 0.66rem; color: var(--muted); }
+.led { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: #cbd5e1; }
+.led--up { background: var(--green-500); box-shadow: 0 0 0 2px rgba(18, 145, 95, 0.18); }
+.led--down { background: var(--red-500); }
+.led--idle { background: #cbd5e1; }
+.segmented--block { width: 100%; }
+.segmented--block button { flex: 1; justify-content: center; }
+
+/* ---- PDU ---- */
+.pdu { gap: 11px; }
+.pdu__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pdu__full { grid-column: 1 / -1; }
+.pdu__packet, .pdu__layers { border-top: 1px solid var(--line); padding-top: 10px; }
+.pdu__packet h3, .pdu__layers h3 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+.pdu__layers ol { display: flex; flex-direction: column; gap: 5px; list-style: none; margin: 0; padding: 0; }
+.pdu__layers li { display: flex; gap: 8px; padding: 6px 8px; background: var(--surface-2); border-radius: 5px; }
+.pdu__layer { font-family: var(--mono); font-size: 0.66rem; font-weight: 700; color: var(--blue-600); flex-shrink: 0; width: 22px; }
+.pdu__layers small { display: block; color: var(--muted); font-size: 0.7rem; }
+.event { display: flex; gap: 8px; font-size: 0.76rem; padding: 6px 8px; border-radius: 5px; background: var(--surface-2); }
+.event--ok { background: var(--green-100); color: #075c3b; }
+.event--erro { background: var(--red-100); color: #8f2016; }
+.event__text { line-height: 1.4; }
+
+/* ---- mobile: aplicação de telemóvel ---- */
+@media (max-width: 760px) {
+  body { font-size: 14.5px; }
+  .topbar { height: 52px; padding: 0 12px; gap: 8px; }
+  .brand__mark { width: 30px; height: 30px; border-radius: 3px; }
+  .brand__mark svg { width: 20px; height: 20px; }
+  .brand__text strong { font-size: 0.82rem; }
+  .brand__text span { font-size: 0.5rem; }
+  .nav { top: 52px; }
+  .main { padding-bottom: 76px; }
+  .footer { display: none; }
+  .page { padding: 16px 14px 28px; }
+  .tabbar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 70;
+    background: #fff; border-top: 1px solid var(--line);
+    padding: 5px 4px calc(5px + env(safe-area-inset-bottom));
+  }
+  .tabbar__link {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 5px 2px; border-radius: 5px; color: var(--muted);
+    font-size: 0.6rem; font-weight: 600; text-decoration: none;
+  }
+  .tabbar__link.is-active { color: var(--blue-600); background: var(--blue-50); }
+
+  /* simulador em telemóvel */
+  .sim { min-height: auto; }
+  .sim__bar { padding: 8px 10px; gap: 8px; }
+  .sim__id { display: none; }
+  .simbar {
+    flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding-bottom: 2px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .simbar::-webkit-scrollbar { display: none; }
+  .simbar__group { flex: 0 0 auto; flex-wrap: nowrap; }
+  .toolbtn { padding: 7px 8px; font-size: 0.72rem; }
+  .toolbtn--icon { padding: 7px; }
+  .zoomlabel { font-size: 0.68rem; min-width: 32px; text-align: center; }
+  .cableselect select { max-width: 118px; }
+  .stage { min-height: 58dvh; }
+  .stage__world { min-width: 980px; min-height: 640px; }
+  .node { width: 94px; }
+  .node__name { font-size: 0.72rem; }
+  .node__ip { font-size: 0.6rem; }
+  /* No telemóvel a biblioteca e o painel ficam em fluxo (nunca tapados pelo
+     iframe de pré-visualização, que pode ter altura dinâmica). */
+  .palette {
+    position: static; inset: auto; width: auto; max-height: 46dvh;
+    transform: none; border-radius: 0; border-right: 0; border-top: 0;
+    border-bottom: 1px solid var(--line); padding: 12px 14px;
+    box-shadow: none; display: none;
+  }
+  .palette--open { display: block; transform: none; }
+  .palette__close { display: grid; }
+  .palette__group ul { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .palette__item { flex-direction: column; align-items: flex-start; gap: 5px; padding: 8px; }
+  .palette__meta strong { font-size: 0.76rem; }
+  .palette__meta small { font-size: 0.6rem; }
+  .sim__side {
+    position: static; max-height: none; padding-bottom: env(safe-area-inset-bottom);
+    border-radius: 0; border-left: 0; border-top: 1px solid var(--line);
+  }
+  .simp { padding: 13px; }
+  .selbar { bottom: 8px; width: calc(100% - 16px); border-radius: 6px; }
+  .selection-safe { padding-bottom: 60px; }
+  .pdu__grid { grid-template-columns: 1fr 1fr; }
+  .modal { padding: 0; align-items: flex-end; }
+  .modal__panel { border-radius: 12px 12px 0 0; max-height: 94dvh; }
+  .modal__body { padding: 14px; }
+  .iface__grid { grid-template-columns: 1fr 1fr; }
+  .auth__brandside { display: none; }
+  .auth { grid-template-columns: 1fr; }
+  .auth__panel { padding: 20px 16px 32px; }
+}
+
+/* ---- correções de largura no telemóvel ---- */
+@media (max-width: 760px) {
+  html, body { max-width: 100%; overflow-x: hidden; }
+  .tabbar { width: 100vw; max-width: 100vw; }
+  .palette { width: auto; max-width: 100%; }
+  .sim__side { width: auto; max-width: 100%; }
+  .simbar { max-width: 100%; }
+  .simbar__group:nth-child(5) { order: -2; }
+  .simbar__group:nth-child(3) { order: -1; }
+  .sim__hint { gap: 8px; }
+  .sim__hint > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { categoryOf, labelOf } from '../../lib/catalog.js'
+import { categoryOf, labelOf, portLabel } from '../../lib/catalog.js'
 import { describeSubnet, freePorts, isValidIpv4, isValidMask, macOf, maskError, maskFromPrefix, networkOf, parseMaskInput, prefixOf } from '../../lib/topology.js'
 
 const updateIface = (setDraft) => (name, patch) =>
@@ -148,7 +148,7 @@ export function DesktopTab({ draft, setDraft, device, onDhcp, busy, dhcpLog }) {
   )
 }
 
-export function InterfacesTab({ draft, setDraft, device, links }) {
+export function InterfacesTab({ draft, setDraft, device, links, devices = [] }) {
   const set = updateIface(setDraft)
   const peerOf = (portName) => {
     const link = links.find(
@@ -158,6 +158,14 @@ export function InterfacesTab({ draft, setDraft, device, links }) {
     )
     return link ? link : null
   }
+  const peerDetails = (link) => {
+    if (!link) return null
+    const peerId = link.a_id === device.id ? link.b_id : link.a_id
+    const peerPort = link.a_id === device.id ? link.b_port : link.a_port
+    const peer = devices.find((entry) => entry.id === peerId)
+    return { peer, peerPort }
+  }
+  const activeCount = draft.interfaces.filter((iface) => iface.status !== 'down').length
   const supportsVlan = ['switch', 'multilayer_switch'].includes(device.type)
   const supportsIp = categoryOf(device.type) !== 'end'
 
@@ -165,20 +173,30 @@ export function InterfacesTab({ draft, setDraft, device, links }) {
     <div className="tabpane">
       <section className="panel">
         <h3>Interfaces</h3>
-        <p className="muted">Ative/desative portas e ajuste o endereçamento de cada interface.</p>
+        <p className="muted">
+          {activeCount} ativas de {draft.interfaces.length}. Nomenclatura Cisco: FastEthernet, GigabitEthernet e Wireless.
+        </p>
         <div className="ifaces">
           {draft.interfaces.map((iface) => {
             const connected = peerOf(iface.name)
+            const peer = peerDetails(connected)
             return (
               <article key={iface.name} className={`iface${iface.status === 'down' ? ' iface--down' : ''}`}>
                 <header className="iface__head">
-                  <strong>{iface.name}</strong>
+                  <span className="iface__title">
+                    <span className={`led ${iface.status === 'down' ? 'led--down' : connected ? 'led--up' : 'led--idle'}`} aria-hidden="true" />
+                    <strong>{portLabel(device.type, iface.name)}</strong>
+                    <small className="iface__short">{iface.name}</small>
+                  </span>
                   <span className={`tag ${iface.status === 'down' ? 'tag--off' : 'tag--ok'}`}>
-                    {iface.status === 'down' ? 'Desligada' : 'Ativa'}
+                    {iface.status === 'down' ? 'admin down' : 'up'}
                   </span>
                 </header>
                 <p className="iface__link">
-                  {connected ? `Ligada (${connected.cable})` : 'Sem cabo'}
+                  {peer?.peer
+                    ? `Ligada a ${peer.peer.name} · ${portLabel(peer.peer.type, peer.peerPort)} (${connected.cable})`
+                    : 'Sem cabo ligado'}
+                  <span className="iface__mac">MAC {macOf(device.id, iface.name)}</span>
                 </p>
                 <div className="iface__grid">
                   {supportsIp && (
@@ -244,6 +262,35 @@ export function InterfacesTab({ draft, setDraft, device, links }) {
                           </select>
                         </label>
                       )}
+                    </>
+                  )}
+                  {!iface.wireless && (
+                    <>
+                      <label className="field">
+                        <span className="field__label">Velocidade</span>
+                        <select
+                          className="field__input"
+                          value={iface.speed ?? 'auto'}
+                          onChange={(event) => set(iface.name, { speed: event.target.value })}
+                        >
+                          <option value="auto">auto</option>
+                          <option value="10">10 Mbps</option>
+                          <option value="100">100 Mbps</option>
+                          <option value="1000">1 Gbps</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span className="field__label">Duplex</span>
+                        <select
+                          className="field__input"
+                          value={iface.duplex ?? 'auto'}
+                          onChange={(event) => set(iface.name, { duplex: event.target.value })}
+                        >
+                          <option value="auto">auto</option>
+                          <option value="full">full</option>
+                          <option value="half">half</option>
+                        </select>
+                      </label>
                     </>
                   )}
                 </div>

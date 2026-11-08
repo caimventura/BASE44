@@ -111,10 +111,12 @@ export async function seedDatabase() {
   }
 
   // Contas de demonstração (documentadas no AGENTS.md/README).
+  // A conta de professor de demonstração foi retirada: o perfil de professor
+  // passa a ser atribuído pela instituição, não por uma conta partilhada.
   const demo = [
     { name: 'Ana Estudante', email: 'aluno@netlab.pt', role: 'student' },
-    { name: 'Prof. Rui Ferreira', email: 'professor@netlab.pt', role: 'teacher' },
   ]
+  await pool.query("DELETE FROM users WHERE email = 'professor@netlab.pt' AND role = 'teacher'")
   for (const account of demo) {
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [account.email])
     if (existing.rows.length > 0) continue

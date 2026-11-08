@@ -111,6 +111,25 @@ export default function Layout({ user, onLogout, children }) {
 
       <main className="main">{children}</main>
 
+      <nav className="tabbar" aria-label="Navegação rápida">
+        {[
+          { to: '/', label: 'Painel', icon: LayoutIcon, match: (path) => path === '/' },
+          { to: '/simulador', label: 'Simulador', icon: NetworkIcon, match: (path) => path.startsWith('/simulador') },
+          { to: '/cursos', label: 'Cursos', icon: BookIcon, match: (path) => path.startsWith('/cursos') },
+          { to: '/laboratorios', label: 'Exercícios', icon: FlaskIcon, match: (path) => path.startsWith('/laboratorios') },
+          { to: '/perfil', label: 'Perfil', icon: UserIcon, match: (path) => path.startsWith('/perfil') },
+        ].map((item) => {
+          const Icon = item.icon
+          const active = item.match(path)
+          return (
+            <Link key={item.to} to={item.to} className={`tabbar__link${active ? ' is-active' : ''}`}>
+              <Icon width={20} height={20} />
+              <span>{item.label}</span>
+            </Link>
+          )
+        })}
+      </nav>
+
       <footer className="footer">
         <span>NETLAB ACADEMY · simulador educativo de redes de computadores</span>
         <span>Não executa sistemas operativos de equipamentos reais. Resultados calculados a partir da topologia criada.</span>

@@ -1,19 +1,28 @@
 // Catálogo de equipamentos do NETLAB ACADEMY.
 // A mesma tabela existe em web/src/lib/catalog.js (não há pacote partilhado
 // entre os dois contentores) — qualquer alteração tem de ser feita nos dois.
+// As portas seguem a nomenclatura do Cisco Packet Tracer: `name` é usado nos
+// cabos/CLI e `label` é o nome completo mostrado na interface.
+
+const port = (name, label = name, wireless = false) => ({ name, label, wireless })
 
 const ranged = (prefix, count, start = 1) =>
-  Array.from({ length: count }, (_, index) => `${prefix}${start + index}`)
+  Array.from({ length: count }, (_, index) => start + index)
 
-const endPorts = [{ name: 'Eth0', wireless: false }]
+const endPorts = [port('Eth0', 'FastEthernet0')]
 const wirelessPorts = [
-  { name: 'Eth0', wireless: false },
-  { name: 'Wlan0', wireless: true },
+  port('Eth0', 'FastEthernet0'),
+  port('Wlan0', 'Wireless0', true),
 ]
 const switchPorts = (count, prefix = 'Fa0/') =>
-  ranged(prefix, count).map((name) => ({ name, wireless: false }))
+  ranged(prefix, count).map((index) => port(`${prefix}${index}`, `FastEthernet0/${index}`))
 const routerPorts = (count) =>
-  ranged('Gig0/', count, 0).map((name) => ({ name, wireless: false }))
+  ranged('Gig0/', count, 0).map((index) => port(`Gig0/${index}`, `GigabitEthernet0/${index}`))
+const switchAllPorts = () => [
+  ...switchPorts(24),
+  port('Gig0/1', 'GigabitEthernet0/1'),
+  port('Gig0/2', 'GigabitEthernet0/2'),
+]
 
 export const DEVICE_CATALOG = {
   // ---- Dispositivos finais -------------------------------------------------
@@ -57,14 +66,14 @@ export const DEVICE_CATALOG = {
     model: 'NL-Mobile 5',
     category: 'end',
     description: 'Dispositivo móvel que se liga apenas por wireless.',
-    ports: [{ name: 'Wlan0', wireless: true }],
+    ports: [port('Wlan0', 'Wireless0', true)],
   },
   tablet: {
     label: 'Tablet',
     model: 'NL-Tab 8',
     category: 'end',
     description: 'Tablet com interface wireless.',
-    ports: [{ name: 'Wlan0', wireless: true }],
+    ports: [port('Wlan0', 'Wireless0', true)],
   },
   ipcam: {
     label: 'Câmara IP',
@@ -78,7 +87,7 @@ export const DEVICE_CATALOG = {
     model: 'NL-IoT 01',
     category: 'end',
     description: 'Sensor inteligente com interface wireless.',
-    ports: [{ name: 'Wlan0', wireless: true }],
+    ports: [port('Wlan0', 'Wireless0', true)],
   },
 
   // ---- Equipamentos de rede -----------------------------------------------
@@ -93,15 +102,15 @@ export const DEVICE_CATALOG = {
     label: 'Switch',
     model: 'NL-Switch 2960',
     category: 'switch',
-    description: 'Switch de 8 portas Fast Ethernet com VLANs e portas trunk.',
-    ports: switchPorts(8),
+    description: 'Switch de 24 portas Fast Ethernet + 2 Gigabit com VLANs e portas trunk.',
+    ports: switchAllPorts(),
   },
   multilayer_switch: {
     label: 'Switch multicamada',
     model: 'NL-L3 3560',
     category: 'switch',
-    description: 'Switch de 8 portas com capacidade de encaminhamento IP (L3).',
-    ports: switchPorts(8),
+    description: 'Switch de 24 portas com capacidade de encaminhamento IP (L3).',
+    ports: switchAllPorts(),
     layer3: true,
   },
   hub: {
@@ -116,7 +125,7 @@ export const DEVICE_CATALOG = {
     model: 'NL-AP 1200',
     category: 'ap',
     description: 'Ponto de acesso wireless com SSID, segurança e canal configuráveis.',
-    ports: [{ name: 'Eth0', wireless: false }],
+    ports: [port('Eth0', 'FastEthernet0')],
   },
   modem: {
     label: 'Modem',
@@ -137,7 +146,7 @@ export const DEVICE_CATALOG = {
     model: 'NL-Home 400',
     category: 'router',
     description: 'Router doméstico com 4 portas LAN e rede wireless integrada.',
-    ports: [...routerPorts(4), { name: 'Wlan0', wireless: true }],
+    ports: [...routerPorts(4), port('Wlan0', 'Wireless0', true)],
   },
 
   // ---- Dispositivos adicionais --------------------------------------------
@@ -146,20 +155,14 @@ export const DEVICE_CATALOG = {
     model: 'NL-Repeat 10',
     category: 'switch',
     description: 'Repetidor que estende o alcance do sinal.',
-    ports: [
-      { name: 'Eth0', wireless: false },
-      { name: 'Wlan0', wireless: true },
-    ],
+    ports: [port('Eth0', 'FastEthernet0'), port('Wlan0', 'Wireless0', true)],
   },
   bridge: {
     label: 'Bridge',
     model: 'NL-Bridge 20',
     category: 'switch',
     description: 'Ponte que une dois segmentos de rede.',
-    ports: [
-      { name: 'Eth0', wireless: false },
-      { name: 'Eth1', wireless: false },
-    ],
+    ports: [port('Eth0', 'FastEthernet0'), port('Eth1', 'FastEthernet1')],
   },
   controller: {
     label: 'Controlador de rede',
@@ -204,6 +207,9 @@ export const categoryOf = (deviceOrType) => {
 export const portsOf = (type) => DEVICE_CATALOG[type]?.ports ?? []
 
 export const labelOf = (type) => DEVICE_CATALOG[type]?.label ?? type
+
+export const portLabel = (type, name) =>
+  portsOf(type).find((entry) => entry.name === name)?.label ?? name
 
 export const prefixOf = (type) => {
   const map = {

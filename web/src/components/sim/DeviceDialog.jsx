@@ -151,7 +151,7 @@ export default function DeviceDialog({
           <DesktopTab draft={draft} setDraft={setDraft} device={device} onDhcp={handleDhcp} busy={busy === 'dhcp'} dhcpLog={dhcpLog} />
         )}
         {tab === 'interfaces' && (
-          <InterfacesTab draft={draft} setDraft={setDraft} device={device} links={links} />
+          <InterfacesTab draft={draft} setDraft={setDraft} device={device} links={links} devices={devices} />
         )}
         {tab === 'vlans' && <VlansTab draft={draft} setDraft={setDraft} device={device} />}
         {tab === 'mac' && <MacTab device={device} draft={draft} links={links} devices={devices} />}

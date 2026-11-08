@@ -8,6 +8,7 @@ import {
   categoryOf,
   hasWireless,
   labelOf,
+  portLabel,
 } from '../../lib/catalog.js'
 import {
   cableInfo,
@@ -15,6 +16,7 @@ import {
   defaultConfigFor,
   formatIp,
   freePorts,
+  prefixOf,
   primaryIface,
   suggestionName,
   topologyPayload,
@@ -30,10 +32,12 @@ import {
   CopyIcon,
   CursorIcon,
   DownloadIcon,
+  EraserIcon,
   ExpandIcon,
   FolderIcon,
   GridIcon,
   LayoutIcon,
+  PduIcon,
   PenIcon,
   PlayIcon,
   PlusIcon,
@@ -51,6 +55,7 @@ import DeviceDialog from './DeviceDialog.jsx'
 import PortPicker from './PortPicker.jsx'
 import SimulationPanel from './SimulationPanel.jsx'
 import NetbotPanel from './NetbotPanel.jsx'
+import PduPanel from './PduPanel.jsx'
 
 const clamp = (value) => Math.min(Math.max(value, 5), 95)
 
@@ -100,6 +105,20 @@ export default function SimulatorPage({ projectId }) {
   const [labBusy, setLabBusy] = useState(false)
   const [labInfoOpen, setLabInfoOpen] = useState(false)
 
+  // Ferramenta PDU (simples = ICMP; complexo = protocolo/TTL/tamanho)
+  const [pduKind, setPduKind] = useState('simple')
+  const [pduFrom, setPduFrom] = useState(null)
+  const [pduTo, setPduTo] = useState(null)
+  const [pduResult, setPduResult] = useState(null)
+  const [pduBusy, setPduBusy] = useState(false)
+  const [pduForm, setPduForm] = useState({
+    protocol: 'icmp',
+    ttl: 128,
+    size: 64,
+    sequence: 1,
+    hostname: '',
+  })
+
   const historyRef = useRef([])
   const futureRef = useRef([])
   const tempIdRef = useRef(-1)
@@ -141,6 +160,46 @@ export default function SimulatorPage({ projectId }) {
   useEffect(() => {
     if (panelOpen || netbotOpen) setSideHidden(false)
   }, [panelOpen, netbotOpen])
+
+  // Em telemóvel o painel de simulação/PDU fica abaixo do mapa: trazê-lo à vista.
+  useEffect(() => {
+    if (!panelOpen) return undefined
+    if (typeof window === 'undefined' || !window.matchMedia('(max-width: 760px)').matches) return undefined
+    const timer = window.setTimeout(() => {
+      document.querySelector('.sim__side')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 180)
+    return () => window.clearTimeout(timer)
+  }, [panelOpen, mode])
+
+  // Em telemóvel a rotação/resize muda a área útil: volta a enquadrar a topologia.
+  useEffect(() => {
+    if (!projectId) return undefined
+    const timer = window.setTimeout(() => fitToView(), 450)
+    const onResize = () => window.setTimeout(() => fitToView(), 200)
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('resize', onResize)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, topology.devices.length])
+
+  // Animação do pacote PDU ao longo do percurso calculado.
+  useEffect(() => {
+    if (mode !== 'pdu' || !simPlaying || !simResult?.ok) return undefined
+    const total = simResult.path?.length ?? 0
+    if (total < 2) return undefined
+    const timer = window.setTimeout(() => {
+      setSimStep((current) => {
+        if (current >= total - 1) {
+          setSimPlaying(false)
+          return current
+        }
+        return current + 1
+      })
+    }, 700 / simSpeed)
+    return () => window.clearTimeout(timer)
+  }, [mode, simPlaying, simStep, simResult, simSpeed])
 
   const selectedDevice = topology.devices.find((device) => device.id === selectedId) ?? null
   const configDevice = topology.devices.find((device) => device.id === configId) ?? null
@@ -262,6 +321,26 @@ export default function SimulatorPage({ projectId }) {
   }
 
   function handleDeviceTap(device) {
+    if (tool === 'erase') {
+      deleteDevice(device)
+      return
+    }
+    if (mode === 'pdu') {
+      if (!pduFrom || (pduFrom && pduTo)) {
+        setPduFrom(device.id)
+        setPduTo(null)
+        setPduResult(null)
+        setSimResult(null)
+        return
+      }
+      if (pduFrom === device.id) {
+        setPduFrom(null)
+        return
+      }
+      setPduTo(device.id)
+      if (pduKind === 'simple') sendPdu(device.id)
+      return
+    }
     if (mode === 'connect') {
       if (!connectFrom) {
         setPortPicker({ device, stage: 'from', cable })
@@ -479,6 +558,7 @@ export default function SimulatorPage({ projectId }) {
   /** Ajusta zoom e deslocamento para mostrar todos os equipamentos. */
   function fitToView(list = topology.devices) {
     const stage = document.querySelector('.stage')
+    const world = document.querySelector('.stage__world')
     if (!stage) return
     const width = stage.clientWidth
     const height = stage.clientHeight
@@ -488,17 +568,21 @@ export default function SimulatorPage({ projectId }) {
       setPan({ x: 0, y: 0 })
       return
     }
-    const xs = list.map((device) => Number(device.x) || 50)
-    const ys = list.map((device) => Number(device.y) || 50)
-    const minX = Math.max(0, Math.min(...xs) - 10)
-    const maxX = Math.min(100, Math.max(...xs) + 10)
-    const minY = Math.max(0, Math.min(...ys) - 12)
-    const maxY = Math.min(100, Math.max(...ys) + 12)
-    const boxW = ((maxX - minX) / 100) * width
-    const boxH = ((maxY - minY) / 100) * height
-    const nextZoom = Math.min(1.4, Math.max(0.3, Math.min(width / boxW, height / boxH) * 0.92))
-    const centerX = (((minX + maxX) / 2) / 100) * width
-    const centerY = (((minY + maxY) / 2) / 100) * height
+    // As posições são percentagens do mundo físico (1180×760 no computador e
+    // 980×640 no telemóvel), não da janela — por isso medimos o mundo real.
+    const worldW = world?.offsetWidth || 1180
+    const worldH = world?.offsetHeight || 760
+    const xs = list.map((device) => (Number(device.x) || 50) * (worldW / 100))
+    const ys = list.map((device) => (Number(device.y) || 50) * (worldH / 100))
+    const minX = Math.min(...xs) - 90
+    const maxX = Math.max(...xs) + 90
+    const minY = Math.min(...ys) - 70
+    const maxY = Math.max(...ys) + 80
+    const boxW = Math.max(1, maxX - minX)
+    const boxH = Math.max(1, maxY - minY)
+    const nextZoom = Math.min(1.4, Math.max(0.25, Math.min(width / boxW, height / boxH) * 0.92))
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
     setZoom(Number(nextZoom.toFixed(2)))
     setPan({ x: Math.round(width / 2 - centerX * nextZoom), y: Math.round(height / 2 - centerY * nextZoom) })
   }
@@ -524,6 +608,66 @@ export default function SimulatorPage({ projectId }) {
     const saved = await persist(next)
     if (saved) setToast({ message: 'Configuração do NETBOT aplicada.', tone: 'ok' })
     return Boolean(saved)
+  }
+
+  /** Abre a ferramenta PDU no modo simples ou complexo. */
+  function openPdu(kind) {
+    setPduKind(kind)
+    setMode('pdu')
+    setTool('select')
+    setPlaceType(null)
+    setConnectFrom(null)
+    setNetbotOpen(false)
+    setPanelOpen(true)
+    setSideHidden(false)
+    resetSimulation()
+    setPduResult(null)
+    if (kind === 'simple') setPduForm((previous) => ({ ...previous, protocol: 'icmp' }))
+  }
+
+  /** Envia um PDU (ICMP simples ou complexo) para a API. */
+  async function sendPdu(toOverride) {
+    const from = pduFrom
+    const to = toOverride ?? pduTo
+    if (!from || !to) {
+      setToast({ message: 'Escolha a origem e o destino do PDU.', tone: 'warn' })
+      return
+    }
+    if (from === to) {
+      setToast({ message: 'A origem e o destino têm de ser diferentes.', tone: 'warn' })
+      return
+    }
+    setPduBusy(true)
+    setPduResult(null)
+    resetSimulation()
+    try {
+      const payload = {
+        from,
+        to,
+        kind: pduKind,
+        ...(pduKind === 'complex'
+          ? {
+              protocol: pduForm.protocol,
+              ttl: Number(pduForm.ttl),
+              size: Number(pduForm.size),
+              sequence: Number(pduForm.sequence),
+              hostname: pduForm.hostname,
+            }
+          : { protocol: 'icmp' }),
+      }
+      const result = await api.pdu(projectId, payload)
+      setPduResult(result)
+      setSimResult(result)
+      setSimStep(0)
+      setSimPlaying(Boolean(result.ok))
+      setPduTo(to)
+      if (result.ok) setToast({ message: result.summary, tone: 'ok' })
+      else setToast({ message: result.reason, tone: 'bad' })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setPduBusy(false)
+    }
   }
 
   async function runSimulation() {
@@ -573,88 +717,290 @@ export default function SimulatorPage({ projectId }) {
     }
   }
 
+  /** Relatório visual: topologia + endereçamento de cada interface. */
   function exportPng() {
-    const width = 1400
-    const height = 900
+    const width = 1600
+    const topologyHeight = 860
+    const rows = []
+    for (const device of topology.devices) {
+      const connectedPorts = new Set(
+        topology.links.flatMap((link) => {
+          if (link.a_id === device.id) return [link.a_port]
+          if (link.b_id === device.id) return [link.b_port]
+          return []
+        })
+      )
+      const interfaces = (device.config?.interfaces ?? []).filter(
+        (iface) => iface.ip || iface.status === 'down' || connectedPorts.has(iface.name)
+      )
+      if (interfaces.length === 0) {
+        rows.push({ device, iface: null })
+        continue
+      }
+      for (const iface of interfaces) rows.push({ device, iface })
+    }
+    const tableHeight = Math.max(120, rows.length * 34 + 70)
+    const height = topologyHeight + tableHeight + 150
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
     const ctx = canvas.getContext('2d')
-    ctx.fillStyle = '#f8fafc'
+    ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
+    const topoTop = 132
+    const topoHeight = topologyHeight - topoTop - 24
+    const truncate = (text, max) => {
+      const value = String(text ?? '')
+      return value.length > max ? `${value.slice(0, max - 1)}…` : value
+    }
+
+    // cabeçalho
+    ctx.fillStyle = '#0b1f33'
+    ctx.fillRect(0, 0, width, 104)
+    ctx.fillStyle = '#7fa8d4'
+    ctx.font = 'bold 14px system-ui, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText('NETLAB ACADEMY · RELATÓRIO DE REDE', 40, 34)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 32px system-ui, sans-serif'
+    ctx.fillText(truncate(project?.name ?? 'Topologia', 52), 40, 72)
+    ctx.textAlign = 'right'
+    ctx.fillStyle = '#b8cde4'
+    ctx.font = '14px system-ui, sans-serif'
+    ctx.fillText(new Date().toLocaleString('pt-PT'), width - 40, 36)
+    ctx.fillText(`${topology.devices.length} equipamentos · ${topology.links.length} cabos`, width - 40, 60)
+    ctx.fillText(
+      truncate(simResult ? `Última simulação: ${simResult.summary}` : `Laboratório #${projectId ?? '—'}`, 74),
+      width - 40,
+      84
+    )
+
+    // área da topologia
+    ctx.fillStyle = '#f6f9fd'
+    ctx.fillRect(24, topoTop, width - 48, topoHeight)
     ctx.strokeStyle = '#e2e8f0'
     ctx.lineWidth = 1
-    for (let x = 0; x < width; x += 40) {
+    for (let x = 24; x < width - 24; x += 40) {
       ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
+      ctx.moveTo(x, topoTop)
+      ctx.lineTo(x, topoTop + topoHeight)
       ctx.stroke()
     }
-    for (let y = 0; y < height; y += 40) {
+    for (let y = topoTop; y < topoTop + topoHeight; y += 40) {
       ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(width, y)
+      ctx.moveTo(24, y)
+      ctx.lineTo(width - 24, y)
       ctx.stroke()
     }
-    const toPx = (device) => ({ x: (device.x / 100) * (width - 160) + 80, y: (device.y / 100) * (height - 160) + 80 })
+
+    const toPx = (device) => ({
+      x: (device.x / 100) * (width - 220) + 110,
+      y: topoTop + 70 + (device.y / 100) * (topoHeight - 150),
+    })
+
+    // cabos com portas nas pontas
     for (const link of topology.links) {
       const a = topology.devices.find((device) => device.id === link.a_id)
       const b = topology.devices.find((device) => device.id === link.b_id)
       if (!a || !b) continue
       const pa = toPx(a)
       const pb = toPx(b)
-      ctx.strokeStyle = cableInfo(link.cable).color
+      const info = cableInfo(link.cable)
+      ctx.strokeStyle = info.color
       ctx.lineWidth = link.cable === 'wireless' ? 2 : 3
-      ctx.setLineDash(link.cable === 'wireless' ? [8, 6] : [])
+      ctx.setLineDash(link.cable === 'wireless' ? [9, 7] : [])
       ctx.beginPath()
       ctx.moveTo(pa.x, pa.y)
       ctx.lineTo(pb.x, pb.y)
       ctx.stroke()
+      ctx.setLineDash([])
+      ctx.fillStyle = '#475569'
+      ctx.font = '12px ui-monospace, monospace'
+      ctx.textAlign = 'center'
+      ctx.fillText(portLabel(a.type, link.a_port), pa.x + (pb.x - pa.x) * 0.22, pa.y + (pb.y - pa.y) * 0.22 - 8)
+      ctx.fillText(portLabel(b.type, link.b_port), pa.x + (pb.x - pa.x) * 0.78, pa.y + (pb.y - pa.y) * 0.78 - 8)
+      ctx.fillStyle = info.color
+      ctx.font = 'bold 11px system-ui, sans-serif'
+      ctx.fillText(info.short, (pa.x + pb.x) / 2, (pa.y + pb.y) / 2 + 4)
     }
-    ctx.setLineDash([])
+
+    // equipamentos com o endereçamento visível
     for (const device of topology.devices) {
       const { x, y } = toPx(device)
+      const category = categoryOf(device.type)
+      const accent = { end: '#1d4ed8', switch: '#4f46e5', router: '#0f9d58', ap: '#7c3aed' }[category] ?? '#1d4ed8'
       ctx.fillStyle = '#ffffff'
-      ctx.strokeStyle = '#1d4ed8'
+      ctx.strokeStyle = device.powered === false ? '#cbd5e1' : accent
       ctx.lineWidth = 2
       ctx.beginPath()
-      if (ctx.roundRect) ctx.roundRect(x - 70, y - 34, 140, 68, 14)
-      else ctx.rect(x - 70, y - 34, 140, 68)
+      if (ctx.roundRect) ctx.roundRect(x - 92, y - 46, 184, 92, 12)
+      else ctx.rect(x - 92, y - 46, 184, 92)
       ctx.fill()
       ctx.stroke()
+      ctx.fillStyle = accent
+      if (ctx.roundRect) ctx.roundRect(x - 92, y - 46, 6, 92, 3)
+      else ctx.rect(x - 92, y - 46, 6, 92)
+      ctx.fill()
+
+      ctx.textAlign = 'left'
       ctx.fillStyle = '#0f172a'
-      ctx.font = 'bold 20px system-ui, sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(device.name, x, y + 4)
-      const ip = formatIp(device)
-      if (ip) {
-        ctx.fillStyle = '#475569'
-        ctx.font = '15px system-ui, sans-serif'
-        ctx.fillText(ip, x, y + 26)
+      ctx.font = 'bold 19px system-ui, sans-serif'
+      ctx.fillText(truncate(device.name, 16), x - 74, y - 16)
+      ctx.fillStyle = '#64748b'
+      ctx.font = '12px system-ui, sans-serif'
+      ctx.fillText(truncate(labelOf(device.type), 24), x - 74, y + 2)
+
+      const configured = (device.config?.interfaces ?? []).filter((iface) => iface.ip)
+      if (configured.length === 0) {
+        ctx.fillStyle = '#b45309'
+        ctx.font = 'bold 12px system-ui, sans-serif'
+        ctx.fillText('Sem endereço IP', x - 74, y + 24)
+      } else {
+        ctx.fillStyle = '#0f172a'
+        ctx.font = '13px ui-monospace, monospace'
+        configured.slice(0, 2).forEach((iface, index) => {
+          ctx.fillText(`${iface.ip}/${prefixOf(iface.mask)}`, x - 74, y + 22 + index * 17)
+        })
+        if (configured.length > 2) {
+          ctx.fillStyle = '#64748b'
+          ctx.font = '11px system-ui, sans-serif'
+          ctx.fillText(`+${configured.length - 2} interfaces`, x + 20, y + 22)
+        }
+      }
+      if (device.powered === false) {
+        ctx.fillStyle = '#94a3b8'
+        ctx.font = 'bold 11px system-ui, sans-serif'
+        ctx.fillText('DESLIGADO', x + 60, y - 30)
       }
     }
+
     for (const note of topology.annotations) {
       const { x, y } = toPx(note)
       ctx.fillStyle = '#065f46'
-      ctx.font = 'bold 18px system-ui, sans-serif'
+      ctx.font = 'bold 17px system-ui, sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText(note.text, x, y)
     }
-    ctx.fillStyle = '#0f172a'
-    ctx.font = 'bold 26px system-ui, sans-serif'
+
+    // legenda
+    const usedCables = [...new Set(topology.links.map((link) => link.cable))]
+    let legendX = 44
+    const legendY = topologyHeight - 16
     ctx.textAlign = 'left'
-    ctx.fillText(`NETLAB ACADEMY — ${project?.name ?? 'Topologia'}`, 40, 52)
+    ctx.font = '12px system-ui, sans-serif'
+    ctx.fillStyle = '#64748b'
+    ctx.fillText('Legenda:', legendX, legendY)
+    legendX += 62
+    for (const cable of usedCables) {
+      const info = cableInfo(cable)
+      ctx.strokeStyle = info.color
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(legendX, legendY - 4)
+      ctx.lineTo(legendX + 26, legendY - 4)
+      ctx.stroke()
+      ctx.fillStyle = '#334155'
+      ctx.fillText(info.label, legendX + 32, legendY)
+      legendX += 32 + ctx.measureText(info.label).width + 24
+    }
+
+    // tabela de configuração
+    const tableTop = topologyHeight + 18
+    ctx.fillStyle = '#0b1f33'
+    ctx.fillRect(24, tableTop, width - 48, 42)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 13px system-ui, sans-serif'
+    const columns = [
+      { x: 44, label: 'Equipamento' },
+      { x: 250, label: 'Tipo' },
+      { x: 430, label: 'Interface' },
+      { x: 700, label: 'Endereço IP' },
+      { x: 920, label: 'Máscara' },
+      { x: 1120, label: 'Gateway / VLAN' },
+      { x: 1400, label: 'Estado' },
+    ]
+    columns.forEach((column) => ctx.fillText(column.label, column.x, tableTop + 27))
+
+    rows.forEach((row, index) => {
+      const y = tableTop + 42 + index * 34
+      ctx.fillStyle = index % 2 === 0 ? '#ffffff' : '#f8fafc'
+      ctx.fillRect(24, y, width - 48, 34)
+      ctx.strokeStyle = '#e2e8f0'
+      ctx.beginPath()
+      ctx.moveTo(24, y + 34)
+      ctx.lineTo(width - 24, y + 34)
+      ctx.stroke()
+      const { device, iface } = row
+      const extra = iface
+        ? iface.mode === 'trunk'
+          ? `trunk ${iface.trunkVlans || 'all'}`
+          : iface.gateway || `VLAN ${iface.vlan ?? 1}`
+        : '—'
+      const values = [
+        truncate(device.name, 24),
+        truncate(labelOf(device.type), 24),
+        iface ? truncate(portLabel(device.type, iface.name), 26) : '—',
+        iface?.ip || '—',
+        iface?.mask ? `${iface.mask} (/${prefixOf(iface.mask)})` : '—',
+        extra,
+        device.powered === false ? 'Desligado' : iface?.status === 'down' ? 'shutdown' : 'Ativa',
+      ]
+      ctx.font = '13px ui-monospace, monospace'
+      ctx.fillStyle = '#0f172a'
+      values.forEach((value, columnIndex) => {
+        if (columnIndex === 6) {
+          ctx.fillStyle = value === 'Ativa' ? '#0f9d58' : '#b45309'
+          ctx.font = 'bold 12px system-ui, sans-serif'
+        }
+        ctx.fillText(truncate(value, columnIndex === 4 ? 30 : 34), columns[columnIndex].x, y + 22)
+        ctx.fillStyle = '#0f172a'
+        ctx.font = '13px ui-monospace, monospace'
+      })
+    })
+
+    ctx.fillStyle = '#64748b'
+    ctx.font = '12px system-ui, sans-serif'
+    ctx.textAlign = 'left'
+    ctx.fillText(
+      'Gerado pelo NETLAB ACADEMY · simulador educativo — os endereços e estados acima refletem a configuração guardada.',
+      40,
+      height - 24
+    )
 
     canvas.toBlob((blob) => {
       if (!blob) return
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `${(project?.name ?? 'netlab').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`
+      anchor.download = `${(project?.name ?? 'netlab').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-relatorio.png`
       anchor.click()
       URL.revokeObjectURL(url)
-      setToast({ message: 'Topologia exportada como imagem PNG.', tone: 'ok' })
+      setToast({ message: 'Relatório da topologia exportado em PNG.', tone: 'ok' })
     })
+  }
+
+  /** Exportação gratuita e portátil: ficheiro JSON do laboratório inteiro. */
+  function exportJson() {
+    const payload = {
+      app: 'NETLAB ACADEMY',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      project: {
+        name: project?.name ?? 'Laboratório',
+        description: project?.description ?? '',
+      },
+      devices: topology.devices,
+      links: topology.links,
+      annotations: topology.annotations,
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${(project?.name ?? 'netlab').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.netlab.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+    setToast({ message: 'Laboratório exportado em JSON (pode reimportar noutro dispositivo).', tone: 'ok' })
   }
 
   if (!projectId) {
@@ -698,6 +1044,12 @@ export default function SimulatorPage({ projectId }) {
     if (saving) return 'A guardar alterações…'
     if (tool === 'pan') return 'Arraste o mapa para navegar.'
     if (tool === 'note') return 'Clique no mapa para colocar uma anotação.'
+    if (tool === 'erase') return 'Toque num equipamento, cabo ou anotação para apagar.'
+    if (mode === 'pdu') {
+      return pduKind === 'simple'
+        ? 'PDU simples: toque na origem e depois no destino para enviar o ICMP.'
+        : 'PDU complexo: escolha protocolo, TTL e tamanho no painel e envie.'
+    }
     if (mode === 'place') return `Clique no mapa para colocar ${labelOf(placeType)}.`
     if (mode === 'connect') {
       return connectFrom
@@ -807,6 +1159,20 @@ export default function SimulatorPage({ projectId }) {
             </button>
             <button
               type="button"
+              className={`toolbtn toolbtn--erase${tool === 'erase' ? ' is-active' : ''}`}
+              onClick={() => {
+                setTool('erase')
+                setMode('select')
+                setPlaceType(null)
+                setConnectFrom(null)
+              }}
+              aria-pressed={tool === 'erase'}
+              title="Apagar equipamentos, cabos e anotações"
+            >
+              <EraserIcon width={16} height={16} /><span>Apagar</span>
+            </button>
+            <button
+              type="button"
               className={`toolbtn${!paletteHidden ? ' is-active' : ''}`}
               onClick={() => {
                 setPaletteHidden((value) => !value)
@@ -839,8 +1205,11 @@ export default function SimulatorPage({ projectId }) {
                 ))}
               </select>
             </label>
-            <button type="button" className="toolbtn" onClick={exportPng}>
-              <DownloadIcon width={16} height={16} /><span>PNG</span>
+            <button type="button" className="toolbtn" onClick={exportPng} title="Relatório visual da topologia com configurações">
+              <DownloadIcon width={16} height={16} /><span>Relatório PNG</span>
+            </button>
+            <button type="button" className="toolbtn" onClick={exportJson} title="Exportar o laboratório em JSON (backup gratuito)">
+              <DownloadIcon width={16} height={16} /><span>JSON</span>
             </button>
             <button type="button" className="toolbtn" onClick={() => fitToView()}>
               <ExpandIcon width={16} height={16} /><span>Ajustar</span>
@@ -879,6 +1248,22 @@ export default function SimulatorPage({ projectId }) {
                 <PlayIcon width={15} height={15} /> Simulação
               </button>
             </div>
+            <button
+              type="button"
+              className={`toolbtn${mode === 'pdu' && pduKind === 'simple' ? ' is-active' : ''}`}
+              onClick={() => openPdu('simple')}
+              title="PDU simples: ICMP Echo entre dois equipamentos"
+            >
+              <PduIcon width={16} height={16} /><span>PDU simples</span>
+            </button>
+            <button
+              type="button"
+              className={`toolbtn${mode === 'pdu' && pduKind === 'complex' ? ' is-active' : ''}`}
+              onClick={() => openPdu('complex')}
+              title="PDU complexo: protocolo, TTL, tamanho e sequência"
+            >
+              <PduIcon width={16} height={16} /><span>PDU complexo</span>
+            </button>
             <button type="button" className={`toolbtn${netbotOpen ? ' is-active' : ''}`} onClick={() => setNetbotOpen((value) => !value)}>
               <BotIcon width={16} height={16} /><span>NETBOT</span>
             </button>
@@ -991,6 +1376,7 @@ export default function SimulatorPage({ projectId }) {
               selectedAnnotationId={selectedAnnotationId}
               connectFrom={connectFrom ? { id: connectFrom.device.id } : null}
               activeHopId={simResult?.ok ? simResult.path[simStep] : null}
+              pduFrom={mode === 'pdu' ? pduFrom : null} pduTo={mode === 'pdu' ? pduTo : null}
               packet={
                 simResult?.ok && simResult.path[simStep]
                   ? (() => {
@@ -999,7 +1385,7 @@ export default function SimulatorPage({ projectId }) {
                       return {
                         x: device.x,
                         y: device.y,
-                        label: `${simMode === 'ping' ? 'ICMP' : 'Rota'} · ${device.name}`,
+                        label: `${simResult?.packet?.protocol ?? (simMode === 'ping' ? 'ICMP' : 'Rota')} · ${device.name}`,
                         onClick: () => setPacketOpen(true),
                       }
                     })()
@@ -1016,11 +1402,19 @@ export default function SimulatorPage({ projectId }) {
               onDeviceOpen={(device) => setConfigId(device.id)}
               onDeviceMove={moveDevice}
               onLinkTap={(id) => {
+                if (tool === 'erase') {
+                  deleteLink(id)
+                  return
+                }
                 setSelectedLinkId(id)
                 setSelectedId(null)
                 setSelectedAnnotationId(null)
               }}
               onAnnotationTap={(id) => {
+                if (tool === 'erase') {
+                  deleteAnnotation(id)
+                  return
+                }
                 setSelectedAnnotationId(id)
                 setSelectedId(null)
                 setSelectedLinkId(null)
@@ -1142,6 +1536,31 @@ export default function SimulatorPage({ projectId }) {
               onRestart={resetSimulation}
               packetOpen={packetOpen}
               setPacketOpen={setPacketOpen}
+            />
+          ) : mode === 'pdu' ? (
+            <PduPanel
+              devices={topology.devices}
+              kind={pduKind}
+              setKind={(next) => {
+                setPduKind(next)
+                setPduResult(null)
+                setSimResult(null)
+              }}
+              fromId={pduFrom}
+              toId={pduTo}
+              setFromId={setPduFrom}
+              setToId={setPduTo}
+              form={pduForm}
+              setForm={setPduForm}
+              result={pduResult}
+              busy={pduBusy}
+              onSend={() => sendPdu()}
+              onClose={() => {
+                setMode('select')
+                setPanelOpen(false)
+                setPduResult(null)
+                setSimResult(null)
+              }}
             />
           ) : (
             <div className="simp">

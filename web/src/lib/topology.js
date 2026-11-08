@@ -1,4 +1,4 @@
-import { CABLE_TYPES, categoryOf, portsOf } from './catalog.js'
+import { CABLE_TYPES, categoryOf, portLabel, portsOf } from './catalog.js'
 
 const IPV4_PATTERN = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
 
@@ -56,6 +56,29 @@ export const freePorts = (device, links, cable) => {
   })
 }
 
+export const interfaceLabel = (device, name) => portLabel(device?.type, name)
+
+/** Equipamento ligado mas ainda sem endereço numa interface em uso. */
+export function needsConfiguration(device, links = []) {
+  const category = categoryOf(device?.type)
+  if (category !== 'router' && category !== 'end') return false
+  const interfaces = device?.config?.interfaces ?? []
+  if (interfaces.length === 0) return false
+  if (category === 'end') {
+    return !interfaces.some((iface) => iface.ip && iface.mask)
+  }
+  const connected = new Set()
+  for (const link of links) {
+    if (link.a_id === device.id) connected.add(link.a_port)
+    if (link.b_id === device.id) connected.add(link.b_port)
+  }
+  if (connected.size === 0) return false
+  return [...connected].some((name) => {
+    const iface = interfaces.find((entry) => entry.name === name)
+    return iface && !iface.ip
+  })
+}
+
 export function linkState(a, b, link) {
   if (!a || !b) return { tone: 'off', label: 'Desconhecido' }
   if (a.powered === false || b.powered === false) return { tone: 'off', label: 'Equipamento desligado' }
@@ -63,6 +86,13 @@ export function linkState(a, b, link) {
   const ifaceB = ifaceOf(b, link.b_port)
   if (ifaceA?.status === 'down' || ifaceB?.status === 'down') {
     return { tone: 'down', label: 'Interface desligada' }
+  }
+  const routerSide = [
+    [a, ifaceA, link.a_port],
+    [b, ifaceB, link.b_port],
+  ].find(([device]) => categoryOf(device.type) === 'router')
+  if (routerSide && routerSide[1] && !routerSide[1].ip) {
+    return { tone: 'unconfigured', label: `${routerSide[0].name} ${routerSide[2]} sem IP` }
   }
   if (link.cable === 'wireless') {
     const ap = [a, b].find((device) => ['access_point', 'wireless_router'].includes(device.type))

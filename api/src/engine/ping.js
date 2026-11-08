@@ -114,10 +114,26 @@ function decide(topology, device, dstIp, dstMask) {
 
   const route = lookupRoute(device, dstIp)
   if (!route) {
+    // Diagnóstico Cisco: a interface que serve a rede de destino pode estar
+    // apenas em shutdown (fica fora da tabela de rotas e parecia "sem rota").
+    const downIface = device.config.interfaces.find(
+      (iface) =>
+        iface.ip &&
+        iface.status === 'down' &&
+        isValidMask(iface.mask) &&
+        networkOf(dstIp, iface.mask) === networkOf(iface.ip, iface.mask)
+    )
+    if (downIface) {
+      return {
+        error: `A interface ${downIface.name} do ${device.name} está desligada (shutdown), por isso a rede ${networkOf(downIface.ip, downIface.mask)} não aparece na tabela de rotas.`,
+        code: 'link-down',
+        hint: `Execute "no shutdown" na ${downIface.name} ou ative a interface no separador Interfaces.`,
+      }
+    }
     return {
       error: `${device.name} não tem rota para ${dstIp} — falta de rota.`,
       code: 'route',
-      hint: `Adicione uma rota estática ou ligue uma interface do ${device.name} à rede de destino.`,
+      hint: `Adicione uma rota estática ou configure o IP de uma interface do ${device.name} na rede de destino.`,
     }
   }
   if (route.kind === 'connected') {

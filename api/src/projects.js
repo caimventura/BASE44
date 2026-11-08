@@ -22,6 +22,7 @@ import { defaultConfig, normalizeConfig } from './engine/config.js'
 import { evaluateLab, starterConfig } from './engine/evaluate.js'
 import { isValidIpv4, isValidMask, maskError } from './engine/ip.js'
 import { simulatePing, simulateTraceroute } from './engine/ping.js'
+import { simulatePdu } from './engine/pdu.js'
 import { requestDhcp, resolveDns, resolveService } from './engine/services.js'
 import { runCli } from './engine/cli.js'
 import { answerNetbot } from './engine/netbot.js'
@@ -769,6 +770,38 @@ projectsRouter.post('/projects/:id/ping', requireAuth, async (req, res, next) =>
       userId: req.user.id,
       kind: 'simulation',
       message: result.ok ? result.summary : `Falha: ${result.reason}`,
+    })
+    res.json(result)
+  } catch (error) {
+    next(error)
+  }
+})
+
+projectsRouter.post('/projects/:id/pdu', requireAuth, async (req, res, next) => {
+  const project = await loadProjectOr404(req, res)
+  if (!project) return
+  const from = asId(req.body?.from)
+  const to = asId(req.body?.to)
+  if (!from || !to) return res.status(400).json({ error: 'Escolha a origem e o destino do PDU.' })
+  try {
+    const { devices, links } = await topologyOf(project.id)
+    const result = simulatePdu(devices, links, {
+      from,
+      to,
+      kind: req.body?.kind,
+      protocol: req.body?.protocol,
+      ttl: req.body?.ttl,
+      size: req.body?.size,
+      sequence: req.body?.sequence,
+      srcPort: req.body?.srcPort,
+      dstPort: req.body?.dstPort,
+      hostname: req.body?.hostname,
+    })
+    await logEvent({
+      projectId: project.id,
+      userId: req.user.id,
+      kind: 'pdu',
+      message: result.ok ? result.summary : `PDU falhou: ${result.reason}`,
     })
     res.json(result)
   } catch (error) {

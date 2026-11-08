@@ -60,6 +60,7 @@ export const api = {
 
   // simulação
   ping: (id, from, to, mode = 'ping') => post(`/api/projects/${id}/ping`, { from, to, mode }),
+  pdu: (id, payload) => post(`/api/projects/${id}/pdu`, payload),
   dhcp: (id, deviceId) => post(`/api/projects/${id}/dhcp/${deviceId}`),
   dns: (id, deviceId, name) => post(`/api/projects/${id}/dns`, { deviceId, name }),
   service: (id, deviceId, hostname, service) =>

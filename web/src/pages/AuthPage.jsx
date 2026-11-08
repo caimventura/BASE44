@@ -42,12 +42,11 @@ export default function AuthPage() {
     }
   }
 
-  async function demoLogin(role) {
+  async function demoLogin() {
     setBusy(true)
     setError('')
     try {
-      const email = role === 'teacher' ? 'professor@netlab.pt' : 'aluno@netlab.pt'
-      await login(email, 'netlab123')
+      await login('aluno@netlab.pt', 'netlab123')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -142,13 +141,6 @@ export default function AuthPage() {
                     <span className="field__label">Nome</span>
                     <input className="field__input" value={form.name} onChange={set('name')} placeholder="O seu nome" required />
                   </label>
-                  <label className="field">
-                    <span className="field__label">Tipo de conta</span>
-                    <select className="field__input" value={form.role} onChange={set('role')}>
-                      <option value="student">Estudante</option>
-                      <option value="teacher">Professor / administrador</option>
-                    </select>
-                  </label>
                 </>
               )}
               <label className="field">
@@ -171,14 +163,11 @@ export default function AuthPage() {
               <button type="submit" className="btn btn--primary btn--block" disabled={busy}>
                 {busy ? 'A processar…' : tab === 'login' ? 'Entrar' : 'Criar conta'}
               </button>
-              <button type="button" className="btn btn--ghost btn--block" onClick={() => demoLogin('student')} disabled={busy}>
-                Entrar com a conta de estudante de demonstração
-              </button>
-              <button type="button" className="btn btn--ghost btn--block" onClick={() => demoLogin('teacher')} disabled={busy}>
-                Entrar com a conta de professor de demonstração
+              <button type="button" className="btn btn--ghost btn--block" onClick={demoLogin} disabled={busy}>
+                Entrar na conta de demonstração
               </button>
               <p className="muted small">
-                Contas de demonstração: aluno@netlab.pt ou professor@netlab.pt · palavra-passe netlab123
+                Conta de demonstração: aluno@netlab.pt · palavra-passe netlab123
               </p>
             </form>
           ) : (

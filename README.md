@@ -11,7 +11,10 @@ com identidade, interface e motor próprios.
   tablet, câmara IP, sensor IoT; routers, switch, switch multicamada, hub, access point, modem,
   firewall, router wireless; repetidor, bridge e controlador.
 - Arrastar e largar, mover, selecionar, duplicar, renomear, eliminar, zoom, navegação, grelha,
-  organização automática, anotações móveis, exportação PNG e limpeza da área.
+  organização automática, anotações móveis, ferramenta de apagar (equipamento/cabo/anotação),
+  relatório PNG com configurações e exportação JSON do laboratório.
+- Interfaces com nomenclatura Cisco (`FastEthernet0/1`, `GigabitEthernet0/0`, `Wireless0`), LED
+  de estado, MAC, velocidade/duplex, porta e equipamento do outro lado do cabo.
 - Desfazer e refazer reais (instantâneos da topologia reenviados ao servidor).
 - Cabos Ethernet direto/cruzado, fibra, serial, consola e wireless, com portas escolhidas pelo
   utilizador, validação de capacidade e indicadores de estado (verde/vermelho/cinza).
@@ -24,6 +27,8 @@ com identidade, interface e motor próprios.
   latência/TTL, eventos passo a passo e explicação do motivo de cada falha.
 - Modo tempo real e modo simulação com pacote animado, controlos de reprodução, velocidade,
   detalhes do pacote (IP, MAC, protocolo, próximo salto, resultado) e lista de eventos.
+- **PDU simples** (ICMP Echo entre dois equipamentos) e **PDU complexo** (ICMP/HTTP/HTTPS/FTP/DNS
+  com TTL, tamanho, sequência e nome DNS), com encapsulamento OSI e detalhe do pacote.
 - DHCP com processo DORA observável e DNS com registos nome → IP.
 
 **Aprendizagem**
@@ -48,10 +53,12 @@ com identidade, interface e motor próprios.
 docker compose -f docker-compose.base44.yml up -d
 ```
 
-Abrir <http://localhost:3000> e entrar com a conta de demonstração:
+Abrir <http://localhost:3000> e entrar com a conta de demonstração de estudante:
+`aluno@netlab.pt` / `netlab123`. A conta de professor de demonstração foi retirada; o perfil de
+professor é atribuído pela instituição.
 
-- Estudante: `aluno@netlab.pt` / `netlab123`
-- Professor: `professor@netlab.pt` / `netlab123`
+A interface é pensada primeiro para telemóvel: barra de navegação inferior, barras de ferramentas
+deslizantes, biblioteca de equipamentos em folha inferior e painéis laterais em bottom sheet.
 
 ## Aviso
 
