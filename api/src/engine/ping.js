@@ -66,7 +66,7 @@ export function lookupRoute(device, dstIp) {
   return matches[0]
 }
 
-function decide(topology, device, dstIp, dstMask) {
+function decide(topology, device, dstIp) {
   const category = categoryOf(device)
 
   if (category === 'end') {
@@ -90,6 +90,13 @@ function decide(topology, device, dstIp, dstMask) {
         hint: 'Abra as configurações do equipamento e defina IP e máscara (ou peça um endereço por DHCP).',
       }
     }
+    if (!isValidIpv4(iface.ip)) {
+      return {
+        error: `O endereço "${iface.ip}" do ${device.name} não é um IPv4 válido.`,
+        code: 'ip',
+        hint: `${device.name}: usa quatro números entre 0 e 255, por exemplo 192.168.1.10.`,
+      }
+    }
     if (!isValidMask(iface.mask)) {
       return {
         error: iface.mask
@@ -99,8 +106,17 @@ function decide(topology, device, dstIp, dstMask) {
         hint: `${device.name}: define a máscara 255.255.255.0 (ou /24).`,
       }
     }
-    if (sameSubnet(iface.ip, iface.mask, dstIp, dstMask)) {
+    // A decisão de "destino local" usa a máscara da origem: é a origem que
+    // decide se o destino é vizinho, mesmo que o destino tenha outra máscara.
+    if (sameSubnet(iface.ip, iface.mask, dstIp)) {
       return { local: true, iface }
+    }
+    if (iface.gateway === iface.ip) {
+      return {
+        error: `O gateway do ${device.name} é o próprio endereço da interface (${iface.ip}).`,
+        code: 'gateway',
+        hint: 'O gateway tem de ser o IP do router na mesma sub-rede, não o do próprio equipamento.',
+      }
     }
     if (!isValidIpv4(iface.gateway)) {
       return {
@@ -221,6 +237,13 @@ export function simulatePing(rawDevices, rawLinks, fromId, toId) {
       'Abra as configurações do equipamento e defina IP e máscara (ou peça um endereço por DHCP).'
     )
   }
+  if (!isValidIpv4(srcIface.ip)) {
+    return fail(
+      `O endereço "${srcIface.ip}" do ${from.name} não é um IPv4 válido.`,
+      'ip',
+      `${from.name}: usa quatro números entre 0 e 255, por exemplo 192.168.1.10.`
+    )
+  }
   if (!isValidMask(srcIface.mask)) {
     return fail(
       srcIface.mask
@@ -237,6 +260,13 @@ export function simulatePing(rawDevices, rawLinks, fromId, toId) {
       `${to.name} não tem endereço IP ativo — o destino não pode responder.`,
       'no-ip',
       `Configure um IP válido no ${to.name}.`
+    )
+  }
+  if (!isValidIpv4(dstIface.ip)) {
+    return fail(
+      `O endereço "${dstIface.ip}" do ${to.name} não é um IPv4 válido, por isso o destino não consegue responder.`,
+      'ip',
+      `${to.name}: usa quatro números entre 0 e 255, por exemplo 192.168.1.11.`
     )
   }
   if (!isValidMask(dstIface.mask)) {
@@ -263,7 +293,7 @@ export function simulatePing(rawDevices, rawLinks, fromId, toId) {
 
   for (let step = 0; step < MAX_HOPS; step += 1) {
     if (current.id === to.id) break
-    const decision = decide(topology, current, dstIp, dstMask)
+    const decision = decide(topology, current, dstIp)
     if (decision.error) return fail(decision.error, decision.code, decision.hint)
 
     if (decision.local) {

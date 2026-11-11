@@ -32,7 +32,7 @@ export const DEVICE_CATALOG = {
   switch: { label: 'Switch', model: 'NL-Switch 2960', category: 'switch', description: 'Switch de 24 portas Fast Ethernet + 2 Gigabit com VLANs e trunks.', ports: [...switchPorts(24), port('Gig0/1', 'GigabitEthernet0/1'), port('Gig0/2', 'GigabitEthernet0/2')] },
   multilayer_switch: { label: 'Switch multicamada', model: 'NL-L3 3560', category: 'switch', description: 'Switch de 24 portas com funções L3.', ports: [...switchPorts(24), port('Gig0/1', 'GigabitEthernet0/1'), port('Gig0/2', 'GigabitEthernet0/2')], layer3: true },
   hub: { label: 'Hub', model: 'NL-Hub 4', category: 'switch', description: 'Concentrador de 4 portas sem VLANs.', ports: switchPorts(4, 'Port ') },
-  access_point: { label: 'Access Point', model: 'NL-AP 1200', category: 'ap', description: 'Ponto de acesso com SSID, segurança e canal.', ports: [port('Eth0', 'FastEthernet0')] },
+  access_point: { label: 'Access Point', model: 'NL-AP 1200', category: 'ap', description: 'Ponto de acesso com SSID, segurança e canal.', ports: [port('Eth0', 'FastEthernet0'), port('Wlan0', 'Wireless0', true)] },
   modem: { label: 'Modem', model: 'NL-DSL 500', category: 'router', description: 'Modem de acesso com duas interfaces.', ports: routerPorts(2) },
   firewall: { label: 'Firewall', model: 'NL-FW 700', category: 'router', description: 'Firewall com ACL, NAT e filtragem.', ports: routerPorts(4) },
   wireless_router: { label: 'Router wireless', model: 'NL-Home 400', category: 'router', description: 'Router doméstico com 4 portas LAN e wireless.', ports: [...routerPorts(4), port('Wlan0', 'Wireless0', true)] },

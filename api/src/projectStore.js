@@ -14,7 +14,7 @@ export async function loadTopology(projectId) {
   return { devices: devices.rows, links: links.rows, annotations: annotations.rows }
 }
 
-export const freePort = (type, links, deviceId) => {
+export const freePort = (type, links, deviceId, cable = 'straight') => {
   const used = new Set(
     links.flatMap((link) => {
       if (link.a_id === deviceId && link.a_port) return [link.a_port]
@@ -22,7 +22,13 @@ export const freePort = (type, links, deviceId) => {
       return []
     })
   )
-  return portsOf(type).find((port) => !used.has(port.name))?.name ?? null
+  // Um cabo de cobre não pode ocupar a porta sem fios.
+  if (cable !== 'wireless') {
+    return portsOf(type).find((port) => !port.wireless && !used.has(port.name))?.name ?? null
+  }
+  // O rádio é um meio partilhado: vários clientes associam-se à mesma porta
+  // wireless do router/access point.
+  return portsOf(type).find((port) => port.wireless)?.name ?? null
 }
 
 export async function nextDeviceName(projectId, type) {
@@ -55,8 +61,9 @@ export async function applyStarter(projectId, starter) {
     const a = ids.get(link.a)
     const b = ids.get(link.b)
     if (!a || !b || a.id === b.id) continue
-    const aPort = freePort(a.type, createdLinks, a.id)
-    const bPort = freePort(b.type, createdLinks, b.id)
+    const cable = link.cable ?? 'straight'
+    const aPort = freePort(a.type, createdLinks, a.id, cable)
+    const bPort = freePort(b.type, createdLinks, b.id, cable)
     if (!aPort || !bPort) continue
     const { rows } = await pool.query(
       `INSERT INTO project_links (project_id, a_id, b_id, a_port, b_port, cable)

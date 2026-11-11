@@ -553,6 +553,19 @@ function runPcTerminal({ topology, device, raw }) {
       if (!result.ok) {
         return finish(`DHCP: ${result.reason}${result.hint ? `\nSugestão: ${result.hint}` : ''}`)
       }
+      // requestDhcp trabalha sobre uma cópia normalizada da topologia: a lease
+      // tem de ser aplicada à configuração desta sessão para ser guardada.
+      const leased =
+        (result.lease &&
+          config.interfaces.find((entry) => entry.name === result.interface)) ??
+        interface_
+      if (result.lease && leased) {
+        leased.ip = result.lease.ip
+        leased.mask = result.lease.mask
+        leased.gateway = result.lease.gateway
+        leased.dhcp = true
+        leased.status = 'up'
+      }
       changed.value = true
       return finish(
         `DHCP: ${result.summary}\n` +

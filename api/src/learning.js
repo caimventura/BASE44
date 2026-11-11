@@ -7,6 +7,12 @@ export const learningRouter = express.Router()
 
 const levelFromXp = (xp) => Math.min(10, 1 + Math.floor(xp / 400))
 
+/** Identificador numérico da rota; NaN chegava ao Postgres e devolvia 500. */
+const asId = (value) => {
+  const number = Number(value)
+  return Number.isInteger(number) && number > 0 ? number : null
+}
+
 learningRouter.get('/dashboard', requireAuth, async (req, res, next) => {
   try {
     const [projects, labsDone, lessonsDone, assessmentsDone, totals, profile, recommended, submissions] =
@@ -124,7 +130,8 @@ learningRouter.get('/courses/:slug', requireAuth, async (req, res, next) => {
 })
 
 learningRouter.post('/lessons/:id/complete', requireAuth, async (req, res, next) => {
-  const id = Number(req.params.id)
+  const id = asId(req.params.id)
+  if (!id) return res.status(404).json({ error: 'Lição não encontrada.' })
   try {
     const { rows } = await pool.query('SELECT * FROM lessons WHERE id = $1', [id])
     if (rows.length === 0) return res.status(404).json({ error: 'Lição não encontrada.' })
@@ -154,7 +161,8 @@ learningRouter.post('/lessons/:id/complete', requireAuth, async (req, res, next)
 })
 
 learningRouter.post('/lessons/:id/practice', requireAuth, async (req, res, next) => {
-  const id = Number(req.params.id)
+  const id = asId(req.params.id)
+  if (!id) return res.status(404).json({ error: 'Lição não encontrada.' })
   try {
     const { rows } = await pool.query('SELECT title, practice FROM lessons WHERE id = $1', [id])
     const lesson = rows[0]
@@ -198,11 +206,13 @@ learningRouter.get('/labs', requireAuth, async (req, res, next) => {
 })
 
 learningRouter.get('/labs/:id', requireAuth, async (req, res, next) => {
+  const id = asId(req.params.id)
+  if (!id) return res.status(404).json({ error: 'Laboratório não encontrado.' })
   try {
     const { rows } = await pool.query(
       `SELECT l.*, (SELECT max(score) FROM lab_submissions s WHERE s.lab_id = l.id AND s.user_id = $2) AS best
        FROM labs l WHERE l.id = $1 AND l.active = true`,
-      [Number(req.params.id), req.user.id]
+      [id, req.user.id]
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Laboratório não encontrado.' })
     res.json({ lab: rows[0] })
@@ -227,10 +237,12 @@ learningRouter.get('/assessments', requireAuth, async (req, res, next) => {
 })
 
 learningRouter.get('/assessments/:id', requireAuth, async (req, res, next) => {
+  const id = asId(req.params.id)
+  if (!id) return res.status(404).json({ error: 'Avaliação não encontrada.' })
   try {
     const { rows } = await pool.query(
       'SELECT id, slug, title, questions FROM assessments WHERE id = $1',
-      [Number(req.params.id)]
+      [id]
     )
     const assessment = rows[0]
     if (!assessment) return res.status(404).json({ error: 'Avaliação não encontrada.' })
@@ -252,7 +264,8 @@ learningRouter.get('/assessments/:id', requireAuth, async (req, res, next) => {
 })
 
 learningRouter.post('/assessments/:id/submit', requireAuth, async (req, res, next) => {
-  const id = Number(req.params.id)
+  const id = asId(req.params.id)
+  if (!id) return res.status(404).json({ error: 'Avaliação não encontrada.' })
   try {
     const { rows } = await pool.query('SELECT * FROM assessments WHERE id = $1', [id])
     const assessment = rows[0]
@@ -398,8 +411,10 @@ learningRouter.post('/teacher/labs', requireTeacher, async (req, res, next) => {
 })
 
 learningRouter.delete('/teacher/labs/:id', requireTeacher, async (req, res, next) => {
+  const id = asId(req.params.id)
+  if (!id) return res.status(400).json({ error: 'Exercício inválido.' })
   try {
-    await pool.query('UPDATE labs SET active = false WHERE id = $1', [Number(req.params.id)])
+    await pool.query('UPDATE labs SET active = false WHERE id = $1', [id])
     res.status(204).end()
   } catch (error) {
     next(error)

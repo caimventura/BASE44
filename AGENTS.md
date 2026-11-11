@@ -124,6 +124,15 @@ autenticação só tem o botão "Entrar com a conta de estudante de demonstraç�
   reportada como `link-down` em vez de "falta de rota".
 - **Exportação**: o PNG é um relatório (cabeçalho, topologia com portas, tabela de endereçamento);
   o JSON exporta o laboratório inteiro para backup offline — não há custo nem serviços externos.
+- **Registo público cria sempre estudantes**: `POST /api/auth/register` ignora `role` no corpo.
+  O perfil de professor é atribuído pela instituição na base de dados:
+  `UPDATE users SET role = 'teacher' WHERE email = '…';` (sem isso, um cliente HTTP podia
+  registar-se como professor e ler as submissões de todos os alunos).
+- **A porta wireless é partilhada**: todos os clientes associados usam a mesma `Wlan0` do
+  router/access point (`freePort` com `cable: 'wireless'` não procura porta livre). As portas de
+  cobre continuam a ser exclusivas. O access point tem `Eth0` + `Wlan0`.
+- **DHCP a partir do terminal**: `ipconfig /renew` aplica a lease à configuração da sessão da CLI
+  (a API persiste-a), para o endereço não desaparecer ao fechar o diálogo.
 - **Sem serviços externos nem credenciais**: não há secrets.
 
 ## Verify

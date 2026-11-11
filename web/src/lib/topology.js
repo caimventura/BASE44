@@ -49,11 +49,9 @@ export const usedPorts = (deviceId, links) => {
 export const freePorts = (device, links, cable) => {
   if (!device) return []
   const used = usedPorts(device.id, links)
-  return portsOf(device.type).filter((port) => {
-    if (used.has(port.name)) return false
-    if (cable === 'wireless') return port.wireless
-    return !port.wireless
-  })
+  // A porta wireless é partilhada por todos os clientes associados.
+  if (cable === 'wireless') return portsOf(device.type).filter((port) => port.wireless)
+  return portsOf(device.type).filter((port) => !port.wireless && !used.has(port.name))
 }
 
 export const interfaceLabel = (device, name) => portLabel(device?.type, name)
@@ -155,7 +153,12 @@ export function describeSubnet(ip, mask) {
   if (!isValidIpv4(ip) || !isValidMask(mask)) return ''
   const network = networkOf(ip, mask)
   const prefix = prefixOf(mask)
-  const host = ip.split('.').slice(-1)[0]
+  // Parte de host = octetos que a máscara não cobre (ex.: /16 → 1.10).
+  const host =
+    ip
+      .split('.')
+      .filter((_, index) => Number(mask.split('.')[index]) !== 255)
+      .join('.') || '0'
   return `Rede ${network}/${prefix} · host ${host}`
 }
 

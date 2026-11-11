@@ -26,7 +26,15 @@ export function parseCookies(header = '') {
   for (const part of String(header).split(';')) {
     const index = part.indexOf('=')
     if (index < 0) continue
-    cookies[part.slice(0, index).trim()] = decodeURIComponent(part.slice(index + 1).trim())
+    const name = part.slice(0, index).trim()
+    const raw = part.slice(index + 1).trim()
+    try {
+      cookies[name] = decodeURIComponent(raw)
+    } catch {
+      // Cookie malformado (ex.: "%E0%A4%A") não pode derrubar o pedido:
+      // fica como texto simples e a sessão é simplesmente ignorada.
+      cookies[name] = raw
+    }
   }
   return cookies
 }
@@ -99,7 +107,10 @@ authRouter.post('/register', async (req, res, next) => {
   const name = String(req.body?.name ?? '').trim()
   const email = String(req.body?.email ?? '').trim().toLowerCase()
   const password = String(req.body?.password ?? '')
-  const role = req.body?.role === 'teacher' ? 'teacher' : 'student'
+  // O registo público cria sempre estudantes. O perfil de professor é
+  // atribuído pela instituição; aceitar `role` do corpo permitia que qualquer
+  // cliente se tornasse professor e lesse as submissões de todos os alunos.
+  const role = 'student'
 
   if (name.length < 2) return res.status(400).json({ error: 'Indique o seu nome (mínimo 2 caracteres).' })
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Endereço de e-mail inválido.' })

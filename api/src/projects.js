@@ -11,7 +11,6 @@ import {
   DEVICE_COLUMNS,
   copyProject,
   createProject,
-  freePort,
   loadTopology,
   logEvent,
   nextDeviceName,
@@ -132,6 +131,8 @@ async function topologyOf(projectId) {
 
 const choosePort = (type, cable, links, deviceId) => {
   const ports = portsOf(type)
+  // O rádio é partilhado: qualquer número de clientes usa a mesma porta wireless.
+  if (cable === 'wireless') return ports.find((port) => port.wireless)?.name ?? null
   const used = new Set(
     links.flatMap((link) => {
       if (link.a_id === deviceId) return [link.a_port]
@@ -696,14 +697,19 @@ projectsRouter.put('/projects/:id/topology', requireAuth, async (req, res, next)
       usedPorts.get(deviceId).add(port)
     }
     const pickPort = (type, deviceId, cable, wanted) => {
-      if (wanted && portsOf(type).some((port) => port.name === wanted) && !portUsed(deviceId, wanted)) {
+      const ports = portsOf(type)
+      if (cable === 'wireless') {
+        // Vários clientes partilham a porta de rádio do AP/router.
+        const wireless = ports.find((port) => port.wireless)
+        if (!wireless) return null
+        markPort(deviceId, wireless.name)
+        return wireless.name
+      }
+      if (wanted && ports.some((port) => port.name === wanted && !port.wireless) && !portUsed(deviceId, wanted)) {
         markPort(deviceId, wanted)
         return wanted
       }
-      const options = portsOf(type).filter((port) =>
-        cable === 'wireless' ? port.wireless : !port.wireless
-      )
-      const free = options.find((port) => !portUsed(deviceId, port.name))
+      const free = ports.find((port) => !port.wireless && !portUsed(deviceId, port.name))
       if (free) markPort(deviceId, free.name)
       return free?.name ?? null
     }

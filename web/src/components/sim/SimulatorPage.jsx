@@ -129,11 +129,14 @@ export default function SimulatorPage({ projectId }) {
   const labId = Number(query.get('lab')) || null
 
   useEffect(() => {
-    if (!projectId) {
-      api.projects().then((data) => setProjects(data.projects)).catch((err) => setError(err.message))
-      return
-    }
     let active = true
+    // A lista é necessária também dentro de um laboratório: o botão "Abrir"
+    // mostra sempre o seletor de projetos.
+    api
+      .projects()
+      .then((data) => active && setProjects(data.projects))
+      .catch((err) => active && setError(err.message))
+    if (!projectId) return () => { active = false }
     setLoading(true)
     api
       .project(projectId)

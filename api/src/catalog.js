@@ -125,7 +125,7 @@ export const DEVICE_CATALOG = {
     model: 'NL-AP 1200',
     category: 'ap',
     description: 'Ponto de acesso wireless com SSID, segurança e canal configuráveis.',
-    ports: [port('Eth0', 'FastEthernet0')],
+    ports: [port('Eth0', 'FastEthernet0'), port('Wlan0', 'Wireless0', true)],
   },
   modem: {
     label: 'Modem',
